@@ -29,6 +29,60 @@
         li {
             display: inline-block;
         }
+        /* Bouton démarrer */
+        .start-game {
+        display: flex;
+        align-items: center;
+        font-family: inherit;
+        font-weight: 500;
+        font-size: 16px;
+        padding: 0.7em 1.4em 0.7em 1.1em;
+        color: white;
+        background: #ad5389;
+        background: linear-gradient(0deg, rgba(20,167,62,1) 0%, rgba(102,247,113,1) 100%);
+        border: none;
+        box-shadow: 0 0.7em 1.5em -0.5em #14a73e98;
+        letter-spacing: 0.05em;
+        border-radius: 20em;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+        }
+
+        .start-game:hover {
+        box-shadow: 0 0.5em 1.5em -0.5em #14a73e98;
+        }
+
+        .start-game:active {
+        box-shadow: 0 0.3em 1em -0.5em #14a73e98;
+        }
+        /* Bouton arrêter */
+        .stop-game {
+        display: flex;
+        align-items: center;
+        font-family: inherit;
+        font-weight: 500;
+        font-size: 16px;
+        padding: 0.7em 1.4em 0.7em 1.1em;
+        color: white;
+        background: #ad5389;
+        background: linear-gradient(0deg, rgb(167, 20, 20) 0%, rgb(247, 102, 102) 100%);
+        border: none;
+        box-shadow: 0 0.7em 1.5em -0.5em #c10f0f98;
+        letter-spacing: 0.05em;
+        border-radius: 20em;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+        }
+        .stop-game:hover {
+        box-shadow: 0 0.5em 1.5em -0.5em #c10f0f98;
+        }
+        .stop-game:active {
+        box-shadow: 0 0.3em 1em -0.5em #c10f0f98;
+        }
         /* ajouter du responsive aux canvas en dessous (taille du dessin) */
     </style>
 </head>
@@ -39,10 +93,10 @@
         <p>Joueur 1 : <em id="player-score">0</em> - Joueur 2 : <em id="computer-score">0</em></p>
         <ul>
             <li>
-                <button id="start-game">Démarrer</button>
+                <button id="start-game" class="start-game" role="button">Démarrer</button>
             </li>
             <li>
-                <button id="stop-game">Arrêter</button>
+                <button id="stop-game" class="stop-game" >Arrêter</button>
             </li>
         </ul>
         <canvas id="canvas" width="640" height="480"></canvas>

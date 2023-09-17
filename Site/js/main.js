@@ -100,7 +100,7 @@ function collide(player) {
         else
             colorsArrows.i = 0;
         //si la balle est hit, on augmente la speed (Option FUNZ)
-        game.ball.speed.x *= -1.2;
+        game.ball.speed.x *= -1.1;
         //changeDirection(player.y); //A decommenter pour mettre une vitesse random cf fonction plus bas
     }
 }
