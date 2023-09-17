@@ -1,6 +1,11 @@
 var canvas;
 var game;
 var anim;
+var hitEffect = false;
+var colorsArrows = {
+    i : 0,
+    Value : ['white', 'red', 'green', 'yellow']
+};
 
 
 const PLAYER_HEIGHT = 100;
@@ -8,22 +13,23 @@ const PLAYER_WIDTH = 12;
 
 function draw() {
     var context = canvas.getContext('2d');
-    // Draw field
+    // Canva terrain
     context.fillStyle = 'black';
     context.fillRect(0, 0, canvas.width, canvas.height);
-    // Draw middle line
+    // Trait de délimitation
         // context.strokeStyle = 'white';
         // context.beginPath();
         // context.moveTo(canvas.width / 2, 0);
         // context.lineTo(canvas.width / 2, canvas.height);
         // context.stroke();
-    // Draw players
+    // Joueur et mur (remplacé l'IA par un mur en attendant de fix)
     context.fillStyle = 'purple';
     context.fillRect(0, game.player.y, PLAYER_WIDTH, PLAYER_HEIGHT);
-    context.fillRect(canvas.width - PLAYER_WIDTH, game.computer.y, PLAYER_WIDTH, PLAYER_HEIGHT);
-    // Draw ball
+    //context.fillRect(canvas.width - PLAYER_WIDTH, game.computer.y, PLAYER_WIDTH, PLAYER_HEIGHT);
+    context.fillRect(canvas.width - PLAYER_WIDTH, 0, PLAYER_WIDTH, canvas.height);
+    // Balle
     context.beginPath();
-    context.fillStyle = 'white';
+    context.fillStyle = colorsArrows.Value[colorsArrows.i];
     context.arc(game.ball.x, game.ball.y, game.ball.r, 0, Math.PI * 2, false);
     context.fill();
 }
@@ -32,13 +38,13 @@ function play() {
         game.ball.x += game.ball.speed.x;
         game.ball.y += game.ball.speed.y;
         draw();
-        computerMove();
+        //computerMove(); A remettre quand 2eme joueur rajouté, IA remplacée par un mur
         ballMove();
         anim = requestAnimationFrame(play);
 }
 
 function playerMove(event) {
-    // Get the mouse location in the canvas
+    // Récupère les infos du Canvas, et on compare la position de la souris par rapport à la position du canva
     var canvasPos = canvas.getBoundingClientRect();
     var mousePos = event.clientY - canvasPos.y;
     if (mousePos < PLAYER_HEIGHT / 2) {
@@ -52,7 +58,7 @@ function playerMove(event) {
 
 function computerMove() { // FIX LES MOUVEMENTS DU BOT
 
-        game.computer.y += game.ball.speed.y * 0.85;
+    game.computer.y += game.ball.speed.y * 0.85;
     // if(game.ball.speed.y > 0)
     //     game.computer.y += 1;
     // else
@@ -63,9 +69,8 @@ function computerMove() { // FIX LES MOUVEMENTS DU BOT
 }
 
 function collide(player) {
-    // The player does not hit the ball
-    if (game.ball.y < player.y || game.ball.y > player.y + PLAYER_HEIGHT) {
-        // Set ball and players to the center
+    // Si la balle est loupée
+    if (game.ball.y < player.y || game.ball.y > player.y + PLAYER_HEIGHT && player.y != -1) {
         // var canvas = document.getElementById('canvas'); Tout à check tranquillement
         var context = canvas.getContext('2d');
         context.clearRect(0, 0, canvas.width, canvas.height);
@@ -73,10 +78,12 @@ function collide(player) {
         game.ball.x = canvas.width / 2;
         game.ball.y = canvas.height / 2;
         game.player.y = canvas.height / 2 - PLAYER_HEIGHT / 2;
-        game.computer.y = canvas.height / 2 - PLAYER_HEIGHT / 2;
-        //reset speed
+        //game.computer.y = canvas.height / 2 - PLAYER_HEIGHT / 2; Mis en commentaire pour éviter l'altération du comp -1
+        //reset de tout le canva (au dessus) + reset de la speed 
+        colorsArrows.i = 0; // reset par la couleur par défaut
         draw();
-        game.ball.speed.x = 2;
+        game.ball.speed.x = 1;
+        // Evenement précedent (du player) correspond au joueur, +1 point à l'ordinateur
         if (player == game.player) {
             game.computer.score++;
             document.querySelector('#computer-score').textContent = game.computer.score;
@@ -87,9 +94,14 @@ function collide(player) {
         sleep(20);
 
     } else {
-        // Increase speed and change direction
+        //rajout d'un changement de couleur lorsque la balle touche (Optionnel mais funz)
+        if(colorsArrows.i + 1 < colorsArrows.Value.length)
+            colorsArrows.i++;
+        else
+            colorsArrows.i = 0;
+        //si la balle est hit, on augmente la speed (Option FUNZ)
         game.ball.speed.x *= -1.2;
-        //changeDirection(player.y);
+        //changeDirection(player.y); //A decommenter pour mettre une vitesse random cf fonction plus bas
     }
 }
 
@@ -111,20 +123,21 @@ function ballMove() {
 function changeDirection(playerPosition) {
     var impact = game.ball.y - playerPosition - PLAYER_HEIGHT / 2;
     var ratio = 100 / (PLAYER_HEIGHT / 2);
-    // Get a value between 0 and 10
     game.ball.speed.y = Math.round(impact * ratio / 10);
 }
 
 function stop() {
+    //stop de l'animation
     cancelAnimationFrame(anim);
-    // Set ball and players to the center
+    // Reset de tout à l'emplacement par défaut
     game.ball.x = canvas.width / 2;
     game.ball.y = canvas.height / 2;
     game.player.y = canvas.height / 2 - PLAYER_HEIGHT / 2;
-    game.computer.y = canvas.height / 2 - PLAYER_HEIGHT / 2;
-    // Reset speed
-    game.ball.speed.x = 0.5;
-    game.ball.speed.y = 0.5;
+    game.computer.y = -1; // remplacement du comp à -1 pour faire une condition mur dans les collisions
+    game.ball.speed.x = 1;
+    game.ball.speed.y = 1;
+
+    colorsArrows.i = 0; // reset par la couleur par défaut
     // Init score
     game.computer.score = 0;
     game.player.score = 0;
@@ -141,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function () {
             score: 0,
         },
         computer: {
-            y: canvas.height / 2 - PLAYER_HEIGHT / 2,
+            y: -1, // remplacement du comp à -1 pour faire une condition mur dans les collisions
             score: 0,
         },
         ball: {
@@ -149,8 +162,8 @@ document.addEventListener('DOMContentLoaded', function () {
             y: canvas.height / 2,
             r: 5,
             speed: {
-                x: 0.5,
-                y: 0.5
+                x: 1,
+                y: 1
             },
         }
     }
