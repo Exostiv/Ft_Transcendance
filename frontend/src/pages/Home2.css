@@ -1,0 +1,125 @@
+.container-grid {
+  display: grid;
+  grid-template-columns: 300px 300px 300px;
+  gap: 50px;
+  margin-top: 3%;
+  justify-content: center;
+  align-items: center;
+
+  
+}
+@font-face {
+  font-family: "Dela";
+  src: url("../fonts/DelaGothicOne-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "VT";
+  src: url("../fonts/VT323-Regular.ttf") format("truetype");
+}
+body {
+  background-color: rgba(15, 13, 14, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Styles pour les écrans plus petits (par exemple, les smartphones) */
+@media (max-width: 768px) {
+  .content {
+    width: 100%;
+  }
+}
+.container {
+  text-align: center;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  font-size: 20px;
+  font-family: "Dela";
+  /*color: #12b5e5; BLEU */
+  color: #fcba28;
+  text-decoration: none;
+  border-radius: 10px;
+  transition: transform 0.3s ease;
+}
+
+.container:hover {
+  transform: scale(1.1);
+}
+
+
+.container-1 {
+  width: 280px;
+  height: 250px;
+  background-image: url('../../public/win.svg');
+  background-size: 60%;
+  background-repeat: no-repeat;
+  background-color: #231f20;
+  background-position: center;
+}
+.container-1:hover {
+  color: #fcba28;
+  background-color: #f9f4da;
+}
+
+.container-2 {
+  width: 280px;
+  height: 250px;
+  background-image: url('../../public/game.svg');
+  background-size: 60%;
+  background-repeat: no-repeat;
+  background-color: #231f20;
+  background-position: center;
+}
+
+.container-2:hover {
+  color: #fcba28;
+  background-color: #f9f4da;
+}
+
+.container-3 {
+  width: 280px;
+  height: 250px;
+  background-image: url('../../public/chat.svg');
+  background-size: 60%;
+  background-repeat: no-repeat;
+  background-color: #231f20;
+  background-position: center;
+}
+.container-3:hover {
+  color: #fcba28;
+  background-color: #f9f4da;
+}
+
+.centered-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: transparent;
+  text-decoration: none;
+  text-shadow: none;
+  width: 250px;
+  height: 250px;
+  margin: auto;
+}
+
+.blinking-text {
+  font-family: "VT";
+  color: #f1b228;
+  font-size: 180px;
+  animation: blink 1s infinite alternate;;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+
+
