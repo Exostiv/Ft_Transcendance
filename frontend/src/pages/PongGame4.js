@@ -1,6 +1,6 @@
 import React from "react";
-import Stopper from "./stopper.js";
-import "./styles.css";
+import Stopper from "./stopper4.js";
+import "./styles4.css";
 
 export default class PongGame extends React.Component {
   constructor(props) {
@@ -108,7 +108,6 @@ export default class PongGame extends React.Component {
   }
 
   checkBallBoundaries() {
-    // dolna i górna ściana
     if (
       this.state.ballPosition.y + 20 >= this.bottomBoundary ||
       this.state.ballPosition.y - 10 <= this.topBoundary
@@ -120,8 +119,6 @@ export default class PongGame extends React.Component {
         }
       });
     }
-
-    // lewa i prawa ściana
     if (
       this.state.ballPosition.x - 10 <= this.leftBoundary ||
       this.state.ballPosition.x + 10 >= this.rightBoundary

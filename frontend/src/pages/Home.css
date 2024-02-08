@@ -1,0 +1,149 @@
+.container-grid {
+  display: grid;
+  grid-template-columns: 300px 300px 300px;
+  gap: 50px;
+  margin-top: 3%;
+  justify-content: center;
+  align-items: center;
+
+  
+}
+@font-face {
+  font-family: "Dela";
+  src: url("../fonts/DelaGothicOne-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "VT";
+  src: url("../fonts/VT323-Regular.ttf") format("truetype");
+}
+
+@media (max-width: 768px) {
+  .content {
+    width: 100%;
+  }
+}
+
+.container-home {
+  display: grid;
+  grid-template-columns: 300px 300px 300px;
+  grid-template-rows:200px 200px;
+  gap: 50px;
+  margin-top: 3%;
+  justify-content: center;
+  /*align-items: center;*/
+
+
+}
+.container0 {
+  text-align: center;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+  padding: 20px;
+  font-size: 20px;
+  font-family: "Dela";
+  /*color: #E9C482;*/
+  /*color: #fcba28;*/
+  color: #f9f4da;
+  text-decoration: none;
+  border-radius: 10px;
+  transition: transform 0.3s ease;
+}
+
+.container0:hover {
+  transform: scale(1.1);
+}
+
+
+.container-1 {
+  width: 280px;
+  height: 250px;
+  background-image: url('../../public/trophy.svg');
+  background-size: 50%;
+  background-repeat: no-repeat;
+  /*background-color: #231f20;*/
+  background-color: rgba(255, 255, 255, 0.4);
+  border: 3px solid #ffffff;
+  border-radius: 5px;
+  box-shadow: 0px 20px 100px rgba(0, 0, 0, 0.3);
+  background-position: center;
+  grid-row: 2;
+}
+.container-1:hover {
+  color: #f088a0;
+  background-color: #f9f4da;
+}
+
+.container-2 {
+  width: 280px;
+  height: 250px;
+  background-image: url('../../public/profile.svg');
+  background-size: 60%;
+  background-repeat: no-repeat;
+  background-color: #231f20;
+   background-color: rgba(255, 255, 255, 0.4);
+  border: 3px solid #ffffff;
+  border-radius: 5px;
+  box-shadow: 0px 20px 100px rgba(0, 0, 0, 0.3);
+  background-position: center;
+  grid-row: 2;
+}
+
+.container-2:hover {
+  color: #f088a0;
+  background-color: #f9f4da;
+}
+
+.container-3 {
+  width: 280px;
+  height: 250px;
+  background-image: url('../../public/settings.svg');
+  background-size: 50%;
+  background-repeat: no-repeat;
+  background-color: #231f20;
+  background-color: rgba(255, 255, 255, 0.4);
+  border: 3px solid #ffffff;
+  border-radius: 5px;
+  box-shadow: 0px 20px 100px rgba(0, 0, 0, 0.3);
+  background-position: center;
+  grid-row: 2;
+}
+.container-3:hover {
+  color: #f088a0;
+  background-color: #f9f4da;
+}
+
+.centered-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: transparent;
+  text-decoration: none;
+  text-shadow: none;
+  width: 250px;
+  height: 250px;
+  margin: auto;
+}
+
+.blinking-text {
+  font-family: "VT";
+  /*color: #f1b228; JAUNE*/
+  color: #f9f4da;
+  font-size: 180px;
+  animation: blink 1s infinite alternate;
+  grid-column: 2;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+
+

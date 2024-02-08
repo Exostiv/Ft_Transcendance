@@ -1,94 +1,42 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
-//import Logintest from './Logintest';
-//import LoginButton from './LoginButton';
-import Login42 from './components/Login42';
+import Login42 from './pages/Login';
 import PongGame from './pages/PongGame';
-import Chat from './pages/Chat';
-import Home2 from './pages/Home2';
-import Profil from './Profil';
-import Navbar2 from './pages/Navbar2';
-import CallbackPage from './CallbackPage';
-import useSession2 from './useSession2';
-//import _42LoginButton from './42LoginButton';
-//import './styles.css';
+import Home from './pages/Home';
+import TwoFA from './pages/2FA';
+import Settings from './pages/Settings';
+import Profil from './pages/Profil';
+import Navbar from './components/Navbar';
+import CallbackPage from './components/LoginAuthorize';
+import useUser from './hooks/useUserStorage';
+// ROUTES
+import NoRoute from './routes/NoRoute';
+import PublicRoute from './routes/PublicRoute';
+import PrivateRoute from './routes/PrivateRoute';
+/*import './global.css';*/
+import 'bootstrap/dist/css/bootstrap.min.css';
+//import TwoFAuthRoute from './routes/TwoFAuthRoute';
 
-
-
-const PublicRoute = ({children}: {children: JSX.Element}) => {
-	const session = useSession2("session");
-	const navigate = useNavigate();
-
-	useEffect(() => {
-		//let challenge = !session.get("2FA_status") || session.get("2FA_challenge");
-		if (session.has("accessToken"))
-			navigate("/home");
-	}, [])
-
-	return <>{children}</>;
-}
-/*
-const PrivateRoute = ({ children }: { children: JSX.Element }) => {
-  const session = useSession2('session');
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    console.log('Session content:', session);
-
-    // Vérifie si l'utilisateur est authentifié
-    if (!session.isAuthenticated()) {
-      // Si non authentifié, redirigez vers la page de connexion
-      navigate('/');
-      console.log('test error');}
-    else{
- 	navigate('/home');
-    }
-  }, [session, navigate]);
-
-  return <>{children}</>;
-};*/
-
-
-
-const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
-  const navigate = useNavigate();
-  const isAuthenticated = async () => {
-    try {
-      const response = await fetch('process.env.REACT_APP_REDIRECT_URI', {
-        method: 'POST',
-      });
-
-      if (response.status === 200) {
-        return true;
-      } else {
-        return false;
-      }
-    } catch (error) {
-      console.error(error);
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/');
-    }
-  }, [navigate]);
-
-  return <>{children}</>;
-};
 
 function App() {
+const backgroundStyle = {
+    background: 'url("./fond2.jpg")',
+    backgroundSize: 'cover',
+    backgroundRepeat: 'no-repeat',
+    minHeight: '100vh',
+    overflow: 'hidden',
+  };
   return (
     <BrowserRouter>
-      <div className="site-background">
+      <div className="container-fluid" style={backgroundStyle}>
       <Routes>
-	<Route path="/" element={<Login42 />} />
- 	<Route path="/callback/" element={<CallbackPage />} />
-        <Route path="/home" element={<PrivateRoute><div><Navbar2 /><Home2 /></div></PrivateRoute>} />
-	<Route path="/play" element={<PrivateRoute><div><Navbar2 /><PongGame /></div></PrivateRoute>} />
-	<Route path="/chat" element={<PrivateRoute><div><Navbar2 /><Chat /></div></PrivateRoute>} />
-	<Route path="/profile" element={<PrivateRoute><div><Profil /></div></PrivateRoute>} />
+	<Route path="/" element={<PublicRoute><div><Login42 /></div></PublicRoute>} />
+	<Route path="/2fa" element={<PublicRoute><div><TwoFA /></div></PublicRoute>} />
+        <Route path="/home" element={<PrivateRoute><div><Navbar /><Home /></div></PrivateRoute>} />
+	<Route path="/play" element={<PrivateRoute><div><Navbar /><PongGame /></div></PrivateRoute>} />
+	<Route path="/settings" element={<PrivateRoute><div><Navbar /><Settings /></div></PrivateRoute>} />
+	<Route path="/profile" element={<PrivateRoute><div><Navbar /><Profil /></div></PrivateRoute>} />
+	<Route path="*" element={<NoRoute />} />
       </Routes>
 	</div>
     </BrowserRouter>
