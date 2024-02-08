@@ -264,3 +264,4 @@ socket.addEventListener("message", (event) => {
 
         // // Write the text on the canvas
         // context.fillText(text, x, y);
+// https://medium.com/@pdx.lucasm/canvas-with-react-js-32e133c05258
