@@ -138,6 +138,7 @@ const PongGame = () => {
     }
   };
 
+
   const collide = (Who) => {
     var canvas = canvasRef.current;
     const { ball } = game;
@@ -163,6 +164,7 @@ const PongGame = () => {
           game.player.score++;
           //document.querySelector('#player-score').textContent = game.player.score;
       }
+      // Implementer fin de partie |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
     }
     else {
       setGame((prevGame) => ({
@@ -194,7 +196,7 @@ const PongGame = () => {
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      // Vérifiez la touche de clavier appuyée
+      // Vérifier la touche de clavier appuyée
       switch (event.key) {
         case 'ArrowUp':
           setGame((prevGame) => ({
@@ -215,7 +217,6 @@ const PongGame = () => {
           }));
           break;
         default:
-          // Ne rien faire pour les autres touches
           break;
       }
       switch (event.keyCode) {
@@ -238,14 +239,10 @@ const PongGame = () => {
           }));
           break;
         default:
-          // Ne rien faire pour les autres touches
           break;}
     };
 
-    // Ajoutez un écouteur d'événement lors du montage du composant
     document.addEventListener('keydown', handleKeyDown);
-
-    // Nettoyez l'écouteur d'événement lors du démontage du composant
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
@@ -253,25 +250,29 @@ const PongGame = () => {
 
   useEffect(() => {
     let lastFrameTime = performance.now();
-    const targetFPS = 200; // Définissez votre FPS cible ici
+    const targetFPS = 200; // FPS
     const frameInterval = 1 / targetFPS;
     let animId;
-  
     const update = () => {
       const currentTime = performance.now();
       const deltaTime = currentTime - lastFrameTime;
-  
+    //   setGame((prevGame) => ({  ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+    //     ...prevGame,
+    //     computer: {
+    //       ...prevGame.computer,
+    //       y: Math.max(0, prevGame.computer.y - PLAYER_HEIGHT/5),
+    //     },
+    //   }));
       if (deltaTime >= frameInterval) {
         if(colorsArrows.i == 3)
           colorsArrows.i = 0;
         else
           colorsArrows.i += 1;
-        draw();
+        draw(); // a verifier ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
         ballMove();
-  
+        iaMove();
         lastFrameTime = currentTime - (deltaTime % frameInterval);
       }
-  
       animId = requestAnimationFrame(update);
     };
   
