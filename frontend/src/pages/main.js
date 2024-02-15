@@ -120,14 +120,49 @@ function collide(player) {
         game.startButtonClicked = false;
         gameOver = true;        // -------------------------------------------------------------------------------------------------ajout
     } else {
-        //rajout d'un changement de couleur lorsque la balle touche (Optionnel mais funz)
-        if(colorsArrows.i + 1 < colorsArrows.Value.length)
-            colorsArrows.i++;
-        else
-            colorsArrows.i = 0;
-        //si la balle est hit, on augmente la speed (Option FUNZ)
-        game.ball.speed.x *= -1; // Enlevé le -1.1 pour les tests
-        //changeDirection(player.y); //A decommenter pour mettre une vitesse random cf fonction plus bas
+            setGame((prevGame) => ({
+              ...prevGame,
+              ball: {
+                ...prevGame.ball,
+                speed: {
+                  ...prevGame.ball.speed,
+                  x: ball.speed.x * -1,
+                },
+              },
+            }));
+            if (game.ball.y <= Who.y + PLAYER_HEIGHT / 2 && game.ball.speed.y > 0) {
+              setGame((prevGame) => ({
+                ...prevGame,
+                ball: {
+                  ...prevGame.ball,
+                  speed: {
+                    ...prevGame.ball.speed,
+                    y: ball.speed.y * - 1,
+                  },
+                },
+              }));
+            } 
+            else if (game.ball.y >= Who.y + PLAYER_HEIGHT / 2 && game.ball.speed.y < 0) {
+              setGame((prevGame) => ({
+                ...prevGame,
+                ball: {
+                  ...prevGame.ball,
+                  speed: {
+                    ...prevGame.ball.speed,
+                    y: ball.speed.y * - 1,
+                  },
+                },
+              }));
+            }
+            setGame((prevGame) => ({
+              ...prevGame,
+              ball: {
+                ...prevGame.ball,
+                x: prevGame.ball.x + prevGame.ball.speed.x,
+                y: prevGame.ball.y + prevGame.ball.speed.y,
+              },
+            }));
+            draw();
     }
 }
 
@@ -256,4 +291,3 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // // Write the text on the canvas
         // context.fillText(text, x, y);
-// https://medium.com/@pdx.lucasm/canvas-with-react-js-32e133c05258

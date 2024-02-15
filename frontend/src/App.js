@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import Login42 from './pages/Login';
-import PongGame from './pages/PongGame';
+import PongGame from './pages/pongGameIa';
 import Home from './pages/Home';
 import TwoFA from './pages/2FA';
 import Settings from './pages/Settings';
