@@ -11,14 +11,14 @@ function ModePong() {
           <button className="example_g"> Player vs AI</button>
         </Link>
         <div className="button-container">
-          <Link to="/pong" className="container0 container2">
+          <Link to="/login2p" className="container0 container2">
             <button className="example_g">Player vs Player</button>
           </Link>
           <Link to="/tournament" className="container0 container4">
             <button className="example_g large">Tournament</button>
           </Link>
         </div>
-        <Link to="/pong3p" className="container0 container3">
+        <Link to="/login3p" className="container0 container3">
           <button className="example_g">3 Players</button>
         </Link>
       </div>

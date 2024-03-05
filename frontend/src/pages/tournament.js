@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import useUser from "../hooks/useUserStorage";
+import axios from 'axios';
 import { Link } from 'react-router-dom';
 import './tournament.css';
 
 var   playerN = 2;
-var   settingOver = false;
 var   userArray = [];
 
 userArray.push(['alias1', "- ", "user"]);
@@ -17,16 +17,11 @@ const Tournament = () => {
   const user = useUser("user");
   const p1 = user.get("username");
   userArray[0][1] = p1;
-  localStorage.setItem('alias1', p1);
+  localStorage.setItem('alias1', p1+ "@+User");
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginMethod, setLoginMethod] = useState('');
-  // useEffect (() => {
 
-  //   return () => {
-  //     userArray = null; 
-  //   }
-  // }, []);
 
   const areValuesUnique = (value1, value2, value3, value4, value5) => {
     return value1 !== value2 && value1 !== value3 && value1 !== value4 &&
@@ -35,26 +30,66 @@ const Tournament = () => {
            value5 !== value1;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("Yo");
     const toadd = 'alias' + playerN;
-    var  tocheck = username.trim()
-    if(username && areValuesUnique(userArray[0][1], userArray[1][1], userArray[2][1], userArray[3][1], tocheck))
+    var  tocheck = username;
+    if(loginMethod == 'Alias')
     {
-      localStorage.setItem(toadd, tocheck);
-      userArray[playerN-1][1] = tocheck;
-
-      playerN += 1;
-      console.log(userArray);
-    }
-    else{
-      alert("Veuillez remplir tous les champs d'alias sans doublons.");
-    }
-    setUsername('');
-    setPassword('');
-    setLoginMethod('');
-    if(playerN == 4)
-      settingOver = true;
+      axios.post('https://localhost:8080/api/checkalias/', {
+        username,
+      })
+      .then(response => {
+        const data = response.data;
+        setUsername('');
+        setPassword('');
+        setLoginMethod('');
+        if(username && areValuesUnique(userArray[0][1], userArray[1][1], userArray[2][1], userArray[3][1], data.username)) {
+          localStorage.setItem(toadd, data.username+"@+User");
+          userArray[playerN-1][1] = data.username;
+          playerN += 1;
+          console.log(userArray);
+        } else {
+          alert("Alias/Username already in use.");
+        }
+      })
+      .catch(error => {
+        if (error.response && error.response.data) {
+            alert(error.response.data.error); // Affiche le message d'erreur renvoyé par le backend
+        } else {
+            alert("An error occurred while processing your request.");
+        }});
+  }
+  else if (loginMethod === 'User')
+  {
+    axios.post('https://localhost:8080/api/signintournament/', {
+      username,
+      password,
+    })
+    .then(response => {
+      const data = response.data;
+      setUsername('');
+      setPassword('');
+      setLoginMethod('');
+      
+      if(username && areValuesUnique(userArray[0][1], userArray[1][1], userArray[2][1], userArray[3][1], data.username)) {
+        localStorage.setItem(toadd, data.username+"@+User");
+        userArray[playerN-1][1] = data.username;
+        playerN += 1;
+        console.log(userArray);
+      } else {
+        console.log("Adakor");
+        alert("User/Alias doesn't exist or already in use.");
+      }
+    })
+    .catch(error => {
+      if (error.response && error.response.data) {
+          alert(error.response.data.error); // Affiche le message d'erreur renvoyé par le backend
+      } else {
+          alert("An error occurred while processing your request.");
+      }});
+    };
   }
   return (
     <div className="container">

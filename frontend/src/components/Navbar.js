@@ -6,12 +6,13 @@ import { useNavigate } from 'react-router-dom';
 import { Link } from "react-router-dom";
 import { Button, Modal } from 'react-bootstrap';
 import LogoutModals from '../modals/LogoutModals';
+import PictureNav from './PictureNav';
 
 function NavBar() {
   const user = useUser("user");
-  const imageProfile = user.get("ProfileAvatar");
+  const imageProfile = user.get("Profilepic");
   const navigate = useNavigate();
-	const [showModal, setShowModal] = React.useState(false);
+  const [showModal, setShowModal] = React.useState(false);
 
   const openModal = () => setShowModal(true);
   const closeModal = () => setShowModal(false);
@@ -35,7 +36,7 @@ function NavBar() {
 
         const imageUrl = response.data.image_url;
         console.log("image url:", imageUrl);
-        user.set("ProfileAvatar", imageUrl);
+        user.set("Profilepic", imageUrl);
       } catch (error) {
         console.error("Erreur image", error);
       }
@@ -55,15 +56,12 @@ function NavBar() {
         </p>
       </div>
       <Link to="/home">Home</Link>
-      <Link to="/play">Game</Link>
       <Link to="/profile">Profile</Link> 
       <Link to="/settings">Settings</Link>
       <div className="logout-link" onClick={openModal}></div>
       <div class="img-fluid">
-        {imageProfile && (
-          <img src={imageProfile} alt="Image de profil" class="rounded-circle pic-nav" />
-        )}
-	<div className="status-indicator"></div>
+        < PictureNav />
+	  {/*<div className="status-indicator"></div>*/}
       </div>
      <LogoutModals showModal={showModal} handleClose={closeModal} />
     </nav>

@@ -1,5 +1,13 @@
 @import "~bootstrap/dist/css/bootstrap.min.css";
 
+.popup {
+  margin-top: 2%;
+  margin-bottom: -1%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .profile-grid1 {
   	display: grid;
   	/*align-items: center;*/
@@ -127,6 +135,18 @@
 
 
 
+}
+.icon-key {
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  background-image: url('../../public/key.svg');
+  background-size: 80%;
+  background-repeat: no-repeat;
+  background-position: center;
+  border: none;
+  outline: none;
+  box-shadow: none;
 }
 
 .profile-2{

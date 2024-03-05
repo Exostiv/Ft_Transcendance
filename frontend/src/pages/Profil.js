@@ -3,79 +3,168 @@ import axios from 'axios';
 import './Profil.css';
 import useUser from '../hooks/useUserStorage';
 import { Link } from 'react-router-dom';
-import { Modal, Button } from 'react-bootstrap';
+import { Modal, Button, Alert, Form } from 'react-bootstrap';
+import ProfilePicture from '../components/ProfilePicture';
 import "./Settings.css"
 /*MODALS*/
 import TwoFA from '../modals/TwoFAModals';
 
 const Profil = () => {
+  const user = useUser("user");
   const [profileData, setProfileData] = useState(null);
   const [error, setError] = useState(null);
   const [profilePicture, setProfilePicture] = useState('');
-  const user = useUser("user");
+  const [profilePictureURL, setProfilePictureURL] = useState(user.get("Profilepic"));
+  const [imageUrl, setImageUrl] = useState('');
 
-  const handleActivation = () => {
-  };
+  const [showModal, setShowModal] = useState(false);
+  const [baliseTexte, setBaliseTexte] = useState('');
+  const [popupInfo, setPopupInfo] = useState({message: '', variant:'success'});
+  const [listFriend, setlistFriend] = useState('');
+
+  const   handleShowModal = () => setShowModal(true);
+  const   handleCloseModal = () => setShowModal(false);
+
+  const   handleInputChange = (event) => {
+    setBaliseTexte(event.target.value);
+  }
 
   useEffect(() => {
-    const accessToken = user.get("access_token");
-    console.log("token :", accessToken);
-
-    if (accessToken) {
-      axios.post('https://localhost:8080/api/userinfos/', {}, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      })
-        .then((response) => {
-          console.log('data:', response.data);
-          setProfileData(response.data);
-
-          const imageUrl = response.data.image.link;
-
-          if (imageUrl) {
-            console.log('image url:', imageUrl);
-            user.set("ProfileAvatar", imageUrl);
-          } else {
-            setError('Aucune image de profil');
-          }
-        })
-        .catch((error) => {
+      const response = axios.post('https://localhost:8080/api/getFriends', 
+      {
+        'username': user.get('username'),
+      }, 
+      {}).then((response) => {
+          if (response.data.error)
+            setlistFriend({"message": ""});
+          else
+            setlistFriend(response.data);
+          console.log('FRIENDS:', response.data);
+      }).catch((error) => {
           setError(error.message);
-        });
-    }
+      });
   }, []);
+  
 
-return (
+  const handleSubmitAdd = async () => {
+        try {
+            const response = await axios.post('https://localhost:8080/api/addFriend', 
+            {
+                user_to_add: baliseTexte,
+                username: user.get('username')
+            });
+            
+            if (response.data.message)
+                setPopupInfo({message: response.data.message, variant: 'success'});
+            else
+                setPopupInfo({message: response.data.error, variant: 'danger'})
+            console.log(response.data)
+            handleCloseModal()
+        } catch (error) {
+            console.error('Erreur lors de la requete au backend: ', error);
+            //setPopupInfo({message: 'Une erreur s\'est produite lors de la requête au backend.', variant: 'danger' });
+        }
+    };
+    const handleSubmitDel = async () => {
+        try {
+            const response = await axios.post('https://localhost:8080/api/delFriend', 
+            {
+                user_to_del: baliseTexte,
+                username: user.get('username')
+            });
+            
+            if (response.data.message)
+                setPopupInfo({message: response.data.message, variant: 'success'});
+            else
+                setPopupInfo({message: response.data.error, variant: 'danger'})
+            console.log(response.data)
+            handleCloseModal()
+            // setlistFriend();
+          } catch (error) {
+            console.error('Erreur lors de la requete au backend: ', error);
+            //setPopupInfo({message: 'Une erreur s\'est produite lors de la requête au backend.', variant: 'danger' });
+        }
+    };
+
+  return (
+  <>
+  {popupInfo.message && (
+      <div className="col d-flex justify-content-center align-items-center">
+          <Alert variant={popupInfo.variant} onClose={() => setPopupInfo({message: '', variant: 'success'})} dismissible>
+              {popupInfo.message}
+          </Alert>
+      </div>
+  )}
     <div className="container mask-custom mt-5 p-4 col-lg-6 rounded"> {/*changer en blanc bg-white ?*/}
         <div>
-          {/* Section Titre Settings */}
+          {/* Section Titre Profile */}
               <div className="row mb-0"> {/*<div className="row mb-4 border-bottom border-dark">*/}
-             <div className="col d-flex justify-content-center align-items-center">
-              <div className="icon-profile1"></div>
-              <p class="title-profile-settings">PROFILE</p>
-	     </div>
-             </div>
-           
-	{/* Section Photo et nom */}
-             <div className="row mb-0">
-              <div className="col text-center position-relative">
-               {user.has("ProfileAvatar") &&
-               ( <div className="position-relative">
-          <img
-            className="rounded-circle larger-profile-pic"
-            src={user.get("ProfileAvatar")}
-            alt="Image de profil"
-          />
-
-          <div
-            className="animate-ping position-absolute translate middle rounded-circle active-indicator"></div>
-        </div>
-      )}
-                <p className="profile-info-text">{user.get("username")}</p>
+                <div className="col d-flex justify-content-center align-items-center">
+                  <div className="icon-profile1"></div>
+                  <p class="title-profile-settings">PROFILE</p>
+	              </div>
               </div>
-             </div>
+           
+	  {/* Section Photo et nom */}
+              <div className="row mb-0">
+                <div className="col text-center position-relative">
+		              <div className="position-relative">
+
+		                <ProfilePicture/>
+
+                    <Modal show={showModal} onHide={handleCloseModal}>
+                        <Modal.Header closeButton>
+                        <Modal.Title>Ajouter/Supprimer un ami</Modal.Title>
+                        </Modal.Header>
+                        <Modal.Body>
+                        <Form.Group controlId="formBaliseTexte">
+                            <Form.Label>Entrez le nom d'utilisateur :</Form.Label>
+                            <Form.Control type="text" value={baliseTexte} onChange={handleInputChange} />
+                        </Form.Group>
+                        </Modal.Body>
+                        <Modal.Footer>
+                        <Button variant="primary" onClick={handleSubmitAdd}>
+                            Ajouter
+                        </Button>
+                        <Button variant="primary" onClick={handleSubmitDel}>
+                            Supprimer
+                        </Button>
+                        <Button variant="secondary" onClick={handleCloseModal}>
+                            Fermer
+                        </Button>
+                        </Modal.Footer>
+                    </Modal>
+
+
+	                </div>
+                  <p className="profile-info-text">@{user.get("username")}</p>
+                  <p className="profile-info-text">{user.get("pseudo")}</p>
+                  <p className="profile-info-text">status : {user.get("status")}</p>
+                </div>
+
+                </div>
+                <div className="col text-center d-flex justify-content-center align-items-center">
+                    <Button variant="light" size='sm' onClick={handleShowModal}>
+                        Gestion d'ami
+                    </Button>
+                </div>
+                <div className="col text-center d-flex justify-content-center align-items-center">
+                <div className="icon-profile"/>
+                    <p class="title-profile">Liste d'ami</p>
+                </div>
+                <div className="col text-center d-flex justify-content-center align-items-center">
+                    {
+                      listFriend && (
+                        <div>
+                          {listFriend.message.split(',').map((element, index) => (
+                            <p key={index} class='text-white'>{element}</p>
+                          ))}
+                        </div>
+                      )
+                    }
+                </div>
+
+
               {/* Section Stats */}
 
              <div className="col d-flex justify-content-center align-items-center">
@@ -85,12 +174,13 @@ return (
 
           {/* Section Titre 2FA */}
 
-             <div className="col d-flex justify-content-center align-items-center">
-              <div className="icon-leader"></div>
-              <p class="title-profile">Match History</p>
-             </div>
-         </div>
+          <div className="col d-flex justify-content-center align-items-center">
+            <div className="icon-leader"></div>
+            <p class="title-profile">Match History</p>
+        </div>
+      </div>
     </div>
+    </>
   );
 };
 

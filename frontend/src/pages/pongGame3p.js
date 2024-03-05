@@ -1,21 +1,46 @@
 import React, { useEffect, useRef, useState } from 'react';
-import "./pongGame.css"
+import "./pongGame.css";
+import axios from 'axios';
 import useUser from "../hooks/useUserStorage";
 const CANVAS_HEIGHT = 500;
 const PLAYER_HEIGHT = CANVAS_HEIGHT/5;
 const PLAYER_WIDTH = 12;
 const TOWIN = 1;
 const CANVAS_WIDTH = 1000;
+var winnerN = "";
+var p2state;
+var p3state;
+var maxSpeed = 25;
+var players = [];
+var x = 0;
+const matchType = "";
 var colorsArrows = {
   i : 0,
   Value : ['white','red','green','yellow']
 };
+const setupPlayers = () => {
 
+for (let i = 1; i <= 3; i++) {
+  const alias = localStorage.getItem(`alias${i}`).split("@+");
+  if (alias) {
+      if(i == 2)
+        p2state = alias[1];
+      else if (i == 3)
+        p3state = alias[1];
+      players.push({name : alias[0], wins : 0, log: alias[1]});
+      }
+  }
+}
 const PongGame3p = () => {
 
+  if(x == 0)
+    setupPlayers();
   const user = useUser("user");
   const p1 = user.get("username");
+  const p2 = players[1].name;
+  const p3 = players[2].name;
   const canvasRef = useRef(null);
+  const [axiosCalled, setAxiosCalled] = useState(false);
   const [game, setGame] = useState({
     feature: {
       on: false,
@@ -43,12 +68,12 @@ const PongGame3p = () => {
       y: CANVAS_HEIGHT / 2 - PLAYER_HEIGHT,
       x: CANVAS_WIDTH / 2 - PLAYER_WIDTH / 2,
       score: 0,
-      name: "Lapin",
+      name: p3,
     },
     computer: {
       y: CANVAS_HEIGHT / 2 - PLAYER_HEIGHT / 2,
       score: 0,
-      name: "Jeannot",
+      name: p2,
     },
     ball: {
       x: CANVAS_WIDTH / 2,
@@ -137,16 +162,32 @@ const PongGame3p = () => {
     game.ball.x <= CANVAS_WIDTH / 2 + PLAYER_WIDTH / 4 &&
     game.ball.y <= game.player3.y + PLAYER_HEIGHT / 2 &&
     game.ball.y >= game.player3.y) {
-      setGame((prevGame) => ({
-        ...prevGame,
-        ball: {
-          ...prevGame.ball,
-          speed: {
-            ...prevGame.ball.speed,
-            x: ball.speed.x * -1.2,
+      if(ball.speed.x > 0)
+      {
+        setGame((prevGame) => ({
+          ...prevGame,
+          ball: {
+            ...prevGame.ball,
+            speed: {
+              ...prevGame.ball.speed,
+              x: Math.max(-maxSpeed, ball.speed.x * -1.2),
+            },
           },
-        },
-      }));
+        }));
+      }
+      else
+      {
+        setGame((prevGame) => ({
+          ...prevGame,
+          ball: {
+            ...prevGame.ball,
+            speed: {
+              ...prevGame.ball.speed,
+              x: Math.min(maxSpeed, ball.speed.x * -1.2),
+            },
+          },
+        }));
+      }
       setGame((prevGame) => ({
         ...prevGame,
         lasthit:3,
@@ -214,16 +255,32 @@ const pongPad3p = (playerPosition) => {
         })); 
       }
       // Tentative de changement de l angle de rebond
-      setGame((prevGame) => ({
-        ...prevGame,
-        ball: {
-          ...prevGame.ball,
-          speed: {
-            ...prevGame.ball.speed,
-            x: ball.speed.x * -1.2,
+      if(ball.speed.x > 0)
+      {
+        setGame((prevGame) => ({
+          ...prevGame,
+          ball: {
+            ...prevGame.ball,
+            speed: {
+              ...prevGame.ball.speed,
+              x: Math.max(-maxSpeed, ball.speed.x * -1.2),
+            },
           },
-        },
-      }));
+        }));
+      }
+      else
+      {
+        setGame((prevGame) => ({
+          ...prevGame,
+          ball: {
+            ...prevGame.ball,
+            speed: {
+              ...prevGame.ball.speed,
+              x: Math.min(maxSpeed, ball.speed.x * -1.2),
+            },
+          },
+        }));
+      }
       pongPad(Who.y);
       setGame((prevGame) => ({
         ...prevGame,
@@ -325,7 +382,6 @@ const pongPad3p = (playerPosition) => {
       document.addEventListener('keyup', handleKeyUp);
       canvasRef.current.addEventListener('mousemove', p3Move);
       return () => {
-        canvasRef.current.removeEventListener('mousemove', p3Move);
         document.removeEventListener('keydown', handleKeyDown);
         document.removeEventListener('keyup', handleKeyUp);
       };
@@ -360,21 +416,21 @@ const pongPad3p = (playerPosition) => {
       resetCanva();
       draw();
       game.winner= true;
-      game.winnerN = game.computer.name;
+      winnerN = game.computer.name;
     }
     else if(game.player.score == TOWIN)
     {
       resetCanva();
       draw();
       game.winner = true;
-      game.winnerN = game.player.name;
+      winnerN = game.player.name;
     }
     else if(game.player3.score == TOWIN)
     {
       resetCanva();
       draw();
       game.winner = true;
-      game.winnerN = game.player3.name;
+      winnerN = game.player3.name;
     }
     else
       update();
@@ -424,6 +480,69 @@ const pongPad3p = (playerPosition) => {
       }));
     }
   };
+
+  useEffect(() => {
+    return () => {
+      x=0;
+      for (let i = 1; i <= 3; i++) {
+        localStorage.removeItem('alias'+i);
+        }
+      players= [];
+    };
+  }, []);
+
+  useEffect(() => { //historique fin de partie2p
+    let p1score = game.player.score;
+    let p2score = game.computer.score;
+    let p3score = game.player3.score;
+    if (game.winner && !axiosCalled) {
+      axios.post('https://localhost:8080/api/pong3phistory/', {
+        p1,
+        p2,
+        p3,
+        p1score,
+        p2score,
+        p3score,
+        p2state,
+        p3state,
+        winnerN,
+        })
+        .then(response => {
+          const data = response.data;
+        })
+        .catch(error => {
+          if (error.response && error.response.data) {
+              alert(error.response.data.error); // Affiche le message d'erreur renvoyé par le backend
+          } else {
+              alert("An error occurred while processing your request.");
+          }});
+      }
+  }, [game.winner, axiosCalled]);
+
+
+    // RESPONSIIIIIIIVEEEEEEE
+
+    useEffect(() => {
+      function handleResize() {
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        game.ball.y = game.ball.y /canvas.height * window.innerHeight * 0.5149330587;
+        game.ball.x = game.ball.x / canvas.width * window.innerWidth * 0.52083;
+        game.player.y = game.player.y / canvas.height * window.innerHeight * 0.5149330587;
+        game.player3.y = game.player3.y / canvas.height * window.innerHeight * 0.5149330587;
+        game.player3.x = game.player3.x / canvas.width * window.innerWidth * 0.52083;
+        game.computer.y = game.computer.y / canvas.height * window.innerHeight * 0.5149330587;
+        canvas.height = window.innerHeight * 0.5149330587;
+        canvas.width = window.innerWidth * 0.52083;
+        draw();
+      };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+    }, [window.innerWidth, window.innerHeight]);
+
   const resetCanva =() => {
 
     setGame((prevGame) => ({
@@ -458,7 +577,7 @@ const pongPad3p = (playerPosition) => {
       <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT}/>
       {game.winner && (
           <div class="alert alert-primary" role="alert" style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translateX(-50%)' }}>
-            {game.winnerN} is the match Winner! <a href="/modepong" class="alert-link">Back</a> 
+            {winnerN} is the match Winner! <a href="/modepong" class="alert-link">Back</a> 
           </div>
       )}
       <div className = "scorej1">{game.player.name} : {game.player.score}</div>

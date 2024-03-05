@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import "./pongGame.css"
-import "./modePong"
+//import "./modePong"
 
 const PLAYER_HEIGHT = 100;
 const PLAYER_WIDTH = 12;
@@ -11,30 +12,103 @@ const TOWIN = 1;
 var   MATCHN  = 0;
 var   tournOver = false;
 var   totOver = false;
+var   tournSet = false;
+var playersUser = [];
+var playersAlias = [];
+const matchType = "";
 var  matches = [];
 var  players = [];
+var winnerN = "";
+var tournamentID  = "23";
+var maxSpeed = 25;
 var x = 0;
 var colorsArrows = {
   i : 0,
   Value : ['white','red','green','yellow']
 };
 
+
+//if(!localStorage.getItem(`alias1`[0]))
+//window.location.href = '/pongGame';
+const createTournament = () => {
+
+  axios.post('https://localhost:8080/api/begintournament/', {
+      playersUser,
+      playersAlias,
+    })
+    .then(response => {
+      const data = response.data;
+      tournamentID = data.tournamentID;
+    })
+    .catch(error => {
+      if (error.response && error.response.data) {
+          alert(error.response.data.error); // Affiche le message d'erreur renvoyé par le backend
+      } else {
+          alert("An error occurred while processing your request.");
+      }});
+    };
+
+const updateTournament = () => { //score gagnant perdant IDtournoi (update mid) // IDtournoi gagnant  
+
+      let p1 = matches[MATCHN][0];
+      let p2 = matches[MATCHN][1];
+      axios.post('https://localhost:8080/api/updatetournament/', {
+          tournamentID,
+          p1,
+          p2,
+          winnerN,
+        })
+        .then(response => {
+          const data = response.data;
+          tournamentID = data.tournamentID;
+        })
+        .catch(error => {
+          if (error.response && error.response.data) {
+              alert(error.response.data.error); // Affiche le message d'erreur renvoyé par le backend
+          } else {
+              alert("An error occurred while processing your request.");
+          }});
+      };
+
+const endTournament = () => {
+
+      axios.post('https://localhost:8080/api/endtournament/', {
+        tournamentID,
+        winnerN,
+      })
+      .then(response => {
+        const data = response.data;
+        tournamentID = data.tournamentID;
+      })
+      .catch(error => {
+        if (error.response && error.response.data) {
+            alert(error.response.data.error); // Affiche le message d'erreur renvoyé par le backend
+        } else {
+            alert("An error occurred while processing your request.");
+        }});
+};
+
 const setupTournament = () => {
 
     for (let i = 1; i <= 4; i++) {
-    const alias = localStorage.getItem(`alias${i}`);
+    const alias = localStorage.getItem(`alias${i}`).split("@+");
     if (alias) {
-        players.push({name : alias, wins : 0});
+        if(alias[1] == 'User')
+          playersUser.push(alias[0]);
+        else if (alias[1] == 'Alias')
+          playersAlias.push(alias[0]);
+        players.push({name : alias[0], wins : 0, log: alias[1]});
         }
         //else add user value recuperee depuis la connexion et stockee dans le localstorage pour la partie
     }
+
+    createTournament();
     matches.push([players[0].name, players[1].name, "-", "-"]);
     matches.push([players[2].name, players[3].name, "-", "-"]);
     matches.push([players[0].name, players[2].name, "-", "-"]);
     matches.push([players[1].name, players[3].name, "-", "-"]);
     matches.push([players[0].name, players[3].name, "-", "-"]);
     matches.push([players[1].name, players[2].name, "-", "-"]);
-
 }
 
 
@@ -89,7 +163,7 @@ const TournamentPong = () => {
   const draw = () => {
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
-    context.clearRect(0,0, context.canvas.width, context.canvas.height)
+    context.clearRect(0,0, context.canvas.width, context.canvas.height);
     context.fillStyle = 'black';
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.fillStyle = 'purple';
@@ -169,16 +243,32 @@ const TournamentPong = () => {
       }
     }
     else {
-      setGame((prevGame) => ({
-        ...prevGame,
-        ball: {
-          ...prevGame.ball,
-          speed: {
-            ...prevGame.ball.speed,
-            x: ball.speed.x * -1.2,
+      if(ball.speed.x > 0)
+      {
+        setGame((prevGame) => ({
+          ...prevGame,
+          ball: {
+            ...prevGame.ball,
+            speed: {
+              ...prevGame.ball.speed,
+              x: Math.max(-maxSpeed, ball.speed.x * -1.2),
+            },
           },
-        },
-      }));
+        }));
+      }
+      else
+      {
+        setGame((prevGame) => ({
+          ...prevGame,
+          ball: {
+            ...prevGame.ball,
+            speed: {
+              ...prevGame.ball.speed,
+              x: Math.min(maxSpeed, ball.speed.x * -1.2),
+            },
+          },
+        }));
+      }
       pongPad(Who.y);
       setGame((prevGame) => ({
         ...prevGame,
@@ -291,7 +381,7 @@ const playerMove = () => {
       resetCanva();
       draw();
       game.winner= true;
-      game.winnerN = game.computer.name;
+      winnerN = game.computer.name;
       const playerIndex = players.findIndex(player => player.name === game.computer.name);
       matches[MATCHN][3] = "V";
       matches[MATCHN][2] = "D";
@@ -305,7 +395,7 @@ const playerMove = () => {
         if(maxIndex2 == -1)
         {
           console.log(maxIndex, maxIndex2);
-          game.winnerN = players[maxIndex].name;
+          winnerN = players[maxIndex].name;
           totOver = true;
         }
         else //DERNIER MATCH LETS GO
@@ -319,7 +409,7 @@ const playerMove = () => {
         resetCanva();
         draw();
         game.winner= true;
-        game.winnerN = game.player.name;
+        winnerN = game.player.name;
         const playerIndex = players.findIndex(player => player.name === game.player.name);
         matches[MATCHN][2] = "V";
         matches[MATCHN][3] = "D";
@@ -332,7 +422,7 @@ const playerMove = () => {
           if(maxIndex2 == -1)
           {
             console.log(maxIndex);
-            game.winnerN = players[maxIndex].name;
+            winnerN = players[maxIndex].name;
             totOver = true;
           }
           else
@@ -408,29 +498,56 @@ const playerMove = () => {
       }));
     }
   };
-  const resetCanva =() => {
 
-    setGame((prevGame) => ({
-      ...prevGame,
-      player:{
-        ...prevGame.player,
-        y:CANVAS_HEIGHT/2 - PLAYER_HEIGHT / 2,
-      },
-      computer:{
-        ...prevGame.computer,
-        y:CANVAS_HEIGHT / 2 - PLAYER_HEIGHT / 2,
-      },
-      ball: {
-        ...prevGame.ball,
-        x: CANVAS_WIDTH / 2,
-        y: CANVAS_HEIGHT / 2,
-        speed: {
-          ...prevGame.ball.speed,
-          x:6,
-          y:6,
+
+    // RESPONSIIIIIIIVEEEEEEE
+
+    useEffect(() => {
+      function handleResize() {
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        game.ball.y = game.ball.y /canvas.height * window.innerHeight * 0.5149330587;
+        game.ball.x = game.ball.x / canvas.width * window.innerWidth * 0.52083;
+        game.player.y = game.player.y / canvas.height * window.innerHeight * 0.5149330587;
+        game.computer.y = game.computer.y / canvas.height * window.innerHeight * 0.5149330587;
+        canvas.height = window.innerHeight * 0.5149330587;
+        canvas.width = window.innerWidth * 0.52083;
+        draw();
+      };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+    }, [window.innerWidth, window.innerHeight]);
+    
+    const resetCanva =() => {
+      const canvas = canvasRef.current;
+      setGame((prevGame) => ({
+        ...prevGame,
+        player:{
+          ...prevGame.player,
+          y:canvas.height/2 - PLAYER_HEIGHT / 2,
         },
-      },
-    }));
+        player3:{
+          ...prevGame.player3,
+          y:canvas.height /2 - PLAYER_HEIGHT,
+        },
+        computer:{
+          ...prevGame.computer,
+          y:canvas.height / 2 - PLAYER_HEIGHT / 2,
+        },
+        ball: {
+          ...prevGame.ball,
+          x: canvas.width / 2,
+          y: canvas.height / 2,
+          speed: {
+            ...prevGame.ball.speed,
+            x:6,
+            y:6,
+          },
+        },
+      }));
   }
 
   const [buttonClicked, setButtonClicked] = useState(false);
@@ -454,20 +571,16 @@ const playerMove = () => {
       },
       player: {
         ...prevGame.player,
-        y: CANVAS_HEIGHT / 2 - PLAYER_HEIGHT / 2,
         score: 0,
         name:matches[MATCHN][0],
       },
       computer: {
         ...prevGame.computer,
-        y: CANVAS_HEIGHT / 2 - PLAYER_HEIGHT / 2,
         score: 0,
         name:matches[MATCHN][1],
       },
       ball: {
         ...prevGame.ball,
-        x: CANVAS_WIDTH / 2,
-        y: CANVAS_HEIGHT / 2,
         speed: {
           ...prevGame.ball.speed,
           x: 6,
@@ -476,11 +589,6 @@ const playerMove = () => {
       },
     }));
     setButtonClicked(false);
-  };
-
-  const handleWinnerButton = () => {
-
-    resetCanva();
   };
 
   // verif des max dans tab player
@@ -510,6 +618,7 @@ const playerMove = () => {
   }
 
   const handleMatch = () => {
+    updateTournament()
     game.winner = false;
     MATCHN += 1;
     resetGame();
@@ -524,7 +633,9 @@ const playerMove = () => {
   useEffect(() => {
     return () => {
       x=0;
-      localStorage.removeItem('alias');
+      for (let i = 1; i <= 4; i++) {
+        localStorage.removeItem('alias'+i);
+        }
       players= [];
       matches = [];
       MATCHN  = 0;
@@ -533,32 +644,21 @@ const playerMove = () => {
     };
   }, []);
 
-  const clearPage = () => {
-
-    // x=0;
-    // localStorage.removeItem('alias');
-    // players=[];
-    // matches = [];
-    // MATCHN  = 0;
-    // tournOver = false;
-    // totOver = false;
-  }
-
   return (
     <div className="canvas">
       <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} />
-      {game.winner && tournOver != true  && (
+      {game.winner && tournOver != true && (
         <div class="alert alert-primary" role="alert" style={{ position: 'absolute', top: '40%', left: '50%', textAlign: 'center', width: 'fit-content', transform: 'translateX(-50%)' }}>
-          Round Winner : {game.winnerN} 
+          Round Winner : {winnerN} 
           <button type="button" class="btn btn-primary"onClick={handleMatch}>Next Match :{matches[MATCHN + 1][0]} vs {matches[MATCHN + 1][1]}</button>
         </div>
       )}
-      {tournOver && totOver &&(
+      {tournOver && totOver && updateTournament && endTournament &&(
         <div class="alert alert-primary" role="alert" style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translateX(-50%)' }}>
-        {game.winnerN} is the tournament Winner ! <a href="/modepong" class="alert-link">Back</a> 
+        {winnerN} is the tournament Winner ! <a href="/modepong" class="alert-link">Back</a> 
       </div>
       )}
-      {tournOver && totOver == false &&(
+      {tournOver && totOver == false && MATCHN != 6 && (
               <div class="alert alert-primary" role="alert" style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translateX(-50%)' }}>
                 DRAW !
                 <button onClick={handleLast}>Final Round :{matches[6][0]} vs {matches[6][1]}</button>

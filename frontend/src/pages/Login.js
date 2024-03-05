@@ -8,12 +8,17 @@ import Img from '../assets/3.png';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'animate.css/animate.min.css';
 import LoginAuthorize from '../components/LoginAuthorize';
+import SignInModals from '../modals/SignInModals';
 import { handleAuthentification } from '../components/LoginAuth';
 
 const LoginPage = () => {
   const user = useUser("user");
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false)
+   const [showModal, setShowModal] = useState(false);
+
+  const handleClose = () => setShowModal(false);
+  const handleShow = () => setShowModal(true);
  //Set toute les infos dans user
   useEffect(() => {
     handleAuthentification(user, setLoading, navigate);
@@ -22,6 +27,7 @@ const LoginPage = () => {
   useEffect(() => { 
     const code2FA_is_activate = user.get("status_2FA");
     const connected = user.has("access_token");
+    const register = user.get("register");
     const code2FA_is_valid = user.get("2FA_valid");
     const not_2FA = !code2FA_is_activate || code2FA_is_valid;
     
@@ -33,7 +39,7 @@ const LoginPage = () => {
     if (connected && not_2FA){
 	
 	setTimeout(() => {
-		navigate(user.get("first_access") ? "/settings" : "/home");
+		navigate("/home");
 	}, 1000)
     }
 
@@ -62,7 +68,8 @@ return (
               <span className="text-ft"> ft_transcendence/pongGame</span>
             </p>
           </div>
-          <LoginAuthorize />
+          <SignInModals />
+	 
         </div>
       )}
     </div>

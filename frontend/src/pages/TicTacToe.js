@@ -1,7 +1,10 @@
 import React, { useState } from "react";
+import { Link  } from 'react-router-dom';
+import useUser from "../hooks/useUserStorage";
+import axios from 'axios';
 import './TicTacToe.css';
 
-function Square({value, onSquareClick}) {//ancien
+function Square({value, onSquareClick}) {
     return (
         <button className="square" onClick={onSquareClick}>
             {value}
@@ -10,20 +13,55 @@ function Square({value, onSquareClick}) {//ancien
 }
 
 function TicTacToeGame() {
+	const user = useUser("user");
+	const [username, setUsername] = useState('');
+	const [password, setPassword] = useState('');
 	const randomNum = Math.random(); //genere un num entre 0 et 1
-    const [xIsNext, setXIsNext] = useState(true);
+    const [xIsNext, setXIsNext] = useState(Math.random() < 0.5);
     const [squares, setSquares] = useState(Array(9).fill(null));
 	const [player1, setPlayer1] = useState({
 
 		playerSymbol : (randomNum < 0.5 ? 'X' : 'O'), // si rNum < 0.5 symbole = X et invercement
-		//playerId : , //database
+		playerAlias: user.get("username"),
 	});
 	const [player2 , setPlayer2] = useState({
 
 		playerSymbol : (player1.playerSymbol === 'X' ? 'O' : 'X'),
-		//playerId : , //database
+		playerAlias : "", //database
 	});
 	
+	const handleRefresh = () => {
+        window.location.href = "/ai-tictactoe"; 
+        window.location.reload();
+    }
+
+	const handleUsernameChange = (event) => {
+        setUsername(event.target.value);
+    };
+
+    const handlePasswordChange = (event) => {
+        setPassword(event.target.value);
+    };
+
+	const handleSubmit = async (e) => {
+        e.preventDefault();
+        console.log('username:', username);
+		console.log('password:', password);
+        try {
+			const response = await axios.post('https://localhost:8080/api/signin/', {
+			  username,
+			  password,
+			});
+	  
+			const data = response.data;
+	  
+			setUsername('');
+			setPassword('');
+		  } catch (error) {
+            console.error('Error:', error);
+        }
+		player2.playerAlias = username;
+    };
 
     function handleClick(i){
 		if ( calculateWinner(squares) || squares[i]) {
@@ -47,22 +85,72 @@ function TicTacToeGame() {
 	const winner = calculateWinner(squares);
 	const tie = checkBoardFull() && !winner;
 	let status;
+	let nextPlayer;
 	if (winner) {
-		status = `Winner : ${winner}`;
+		if(winner === player1.playerSymbol){
+			status = `Winner : ${player1.playerAlias}`;
+		}
+		else if(winner === player2.playerSymbol){
+			status = `Winner : ${player2.playerAlias}`;
+		}
 	} else {
 		if(tie){
 			status = "It's a Tie!";
 		} else{
-			status = `Next player: ${xIsNext ? player1.playerSymbol : player2.playerSymbol}`;
+			nextPlayer = `Next player: ${xIsNext ? player1.playerAlias : player2.playerAlias}`;
 		}
 	}
 
     return(
         <>
-			<div className={`status ${winner ? 'winner' : ''} ${tie ? 'tie' : ''}`}>
-    			{status}
-			</div>
+			{ player2.playerAlias === "" && (
+				<div className="pop-up-overlay">
+					<div className="pop-up">
+						<div className="alert alert-info" role="alert">
+						<form onSubmit={handleSubmit}>
+							<div className="mb-3">
+								<label htmlFor="exampleFormControlInput1" className="form-label">Username</label>
+								<input type="text" className="form-control" id="exampleFormControlInput1" placeholder="example: John" value={username} onChange={handleUsernameChange} />
+							</div>
+							<div className="mb-3">
+								<label htmlFor="inputPassword5" className="form-label">Password</label>
+								<input type="password" id="inputPassword5" className="form-control" aria-describedby="passwordHelpBlock" value={password} onChange={handlePasswordChange} />
+								<div id="passwordHelpBlock" className="form-text">
+									Your password must be 8-20 characters long, contain letters and numbers, and must not contain spaces, special characters, or emoji.
+								</div>
+							</div>
+							<button type="submit" className="btn btn-primary">Submit</button>
+						</form>
+						</div>
+					</div>
+				</div>
+			)}
+			{(winner || tie) && (
+                <div className="popup-container">
+                    <div className="popup">
+                        <div className="alert alert-success" role="alert">
+                            <h4 className={`status ${winner ? 'winner' : ''} ${tie ? 'tie' : ''}`}>{status}</h4>
+                            <div className="linker">
+                                <Link to="/ai-tictactoe">
+                                    <button type="button" class="btn btn-secondary" onClick={() => handleRefresh()}>Play Again</button>
+                                </Link>
+                                <Link to="/modetictactoe">
+                                    <button type="button" class="btn btn-secondary">Change Mode</button>
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+			{/* garder l'affichage du next player ?*/}
 			<div className="board">
+				{ nextPlayer && (
+					<div className="next-player-container">
+						<div className={`nextplayer ${xIsNext ? player1.playerAlias : player2.playerAlias}`}>
+							{nextPlayer}
+						</div>
+					</div>
+				)}
 				<div className="board-row">
 					<Square value={squares[0]} onSquareClick={() => handleClick(0)}/>
 					<Square value={squares[1]} onSquareClick={() => handleClick(1)}/>
