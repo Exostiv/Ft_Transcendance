@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Row, Col, Button, Modal } from 'react-bootstrap';
+import { Alert, Button, Modal } from 'react-bootstrap';
 import QrCode from '../components/settings/QrCode';
 import QrCodeValidator from "../components/settings/Qr";
 import useUser from '../hooks/useUserStorage';
-import styles from '../styles/Settings.module.scss';
 import '../pages/Settings.css';
 import axios from 'axios';
 
@@ -12,15 +11,15 @@ const TwoFAModals = () => {
 
   const handleShowModal = () => setShowModal(true);
   const handleCloseModal = () => setShowModal(false);
-	const session = useUser("user");
+  const user = useUser("user");
   const [error, setError] = useState(null);
   const { protocol, hostname, port } = window.location;
 
   const handleActivation = async (status: boolean) => {
-    console.log("2FA status (activate) =", session.get("status_2FA"));
+    console.log("2FA status (activate) =", user.get("status_2FA"));
     if (status) {
        console.log("status =", status);
-      return session.set("status_2FA", true);
+      return user.set("status_2FA", true);
     }
     setError("Code invalide");
     setTimeout(() => setError(null), 2000);
@@ -28,17 +27,22 @@ const TwoFAModals = () => {
 
   const handleDesactivation = async (status: boolean) => {
     if (status) {
-            console.log("2FA status (activate) apreees =", session.get("status_2FA"));
+            console.log("2FA status (activate) apreees =", user.get("status_2FA"));
       try {
+
+        const responsejwt = await axios.post(
+          `https://localhost:8080/api/auth/get-tokenjwt/${user.get("id")}/`, {},{}
+        );
+
         const response = await axios.post(
           `https://${hostname}:8080/api/auth/disable_2fa/`,
           {
-            secret: session.get("2FA_secret"),
+            secret: user.get("2FA_secret"),
           },
           {
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${session.get("jwt_token")}`, // A chnager avec token JWT
+              Authorization: `Bearer ${responsejwt.data.jwt_token}`,
             },
           }
         );
@@ -46,7 +50,7 @@ const TwoFAModals = () => {
         const data = response.data;
 
         if (data.status) {
-          session.set("status_2FA", false);
+          user.set("status_2FA", false);
         }
         else {
           setError("Erreur inattendue");
@@ -63,7 +67,7 @@ const TwoFAModals = () => {
   return (
     <div>
       {/* Button to open the modal */}
-	  {!session.get("status_2FA") ? (
+	  {!user.get("status_2FA") ? (
                  <Button className="Button-settings-2FA-ON" onClick={handleShowModal}>
                  Turn on 2FA App
       		</Button>
@@ -85,13 +89,13 @@ const TwoFAModals = () => {
                   <div className="card-body px-lg-5 py-lg-5 text-center">
                     <QrCode size="200px" />
                     <h2 className="text-info">2FA Security</h2>
-	  	    <p className="mb-4"><p>
-                {session.get("status_2FA") ? "Two-factor authentication is enabled" : 
-			"Saisissez le code à 6 chiffres généré par votre app Google Authentificator."}</p></p>
+	  	    <p className="mb-4">
+                {user.get("status_2FA") ? "Two-factor authentication is enabled" : 
+			"Saisissez le code à 6 chiffres généré par votre app Google Authentificator."}</p>
 	  	    
               {/* QR Code Validator Section */}
-              {error && <strong className={styles.settingsFeatureError}>{error}</strong>}
-              {!session.get("status_2FA") ? (
+              {error && <Alert variant="danger">{error}</Alert>}
+              {!user.get("status_2FA") ? (
                 <QrCodeValidator
                   then={handleActivation}
                   placeholder="_"
@@ -99,7 +103,7 @@ const TwoFAModals = () => {
               ) : (
                 <Button
                   onClick={handleDesactivation}
-                  className={styles.settingsFeatureDesactivate}
+                  className="Button-settings-2FA-OFF"
                 >
                   Désactiver
                 </Button>

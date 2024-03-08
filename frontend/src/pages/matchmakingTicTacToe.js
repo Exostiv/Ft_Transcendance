@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 //import { useNavigate } from 'react-router-dom';
 import useUser from "../hooks/useUserStorage";
 import axios from 'axios';
+import ShowTicTacToe from "./showTicTacToeM";
 import './matchmakingTicTacToe.css';
 import ShowTicTacToeM from "./showTicTacToeM";
 
@@ -10,6 +11,7 @@ var nbPlayers = 0;
 var MATCH = [];
 var name = "";
 var name2 = "";
+var queueUp = false;
 // Module majeur : Ajout d’un second jeu avec historique et "matchmaking".
 // Dans ce module majeur, l’objectif est d’introduire un nouveau jeu, distinct de
 // Pong, et d’y incorporer des fonctionnalités telles que l’historique de l’utilisateur et
@@ -34,33 +36,39 @@ function Matchmaking(){
 
     const [isInQueue, setIsInQueue] = useState(false);
     const [showForm, setShowForm] = useState(false);
+    // const [ownwr, setOwnwr] = useState(user.get("winrate"));
+    const [statsGames, setStatsGames] = useState('');
+    const [statsGames2, setStatsGames2] = useState('');
     const user = useUser("user");
+    var host2  = user.get('username');
+    const [host, setHost] = useState(user.get("username"));
     const [username, setUsername] = useState('');//recuperer le username en entrer
 	const [password, setPassword] = useState('');//recuperer le mot de passe en entrer
     const [matchUp, setMatchUp] = useState(false);
+    const [showPopup, setShowPopup] = useState(false);
     const [waitingPlayer, setWaitingPLayer] = useState({
         players: [
             {
                 alias: '\0',
-                winrate: 10,
+                winrate: 0,
                 waitingTime: 0,
                 Matched: false,
             },
             {
                 alias: '\0',
-                winrate: 20,
+                winrate: 10,
                 waitingTime: 0,
                 matched: false,
             },
             {
                 alias: '\0',
-                winrate: 40,
+                winrate: 30,
                 waitingTime: 0,
                 matched: false,
             },
             {
                 alias: '\0',
-                winrate: 70,
+                winrate: 50,
                 waitingTime: 0,
                 matched: false,
             }
@@ -76,13 +84,20 @@ function Matchmaking(){
     };
 
     useEffect(() => {
+        if(matchUp == true)
+            queueUp = false;
+        if(matchUp == false)
+            queueUp = true;
+    },[matchUp]);
+
+    useEffect(() => {
         // Démarre le compteur pour chaque joueur en utilisant setInterval
         const intervalId = setInterval(() => {
             // Met à jour le temps d'attente pour chaque joueur en incrémentant de 1
             setWaitingPLayer(prevState => ({
                 ...prevState,
                 players: prevState.players.map(player => {
-                    if (player.alias !== '\0' && matchUp == false) { // Vérifie si l'alias n'est pas vide
+                    if (player.alias !== '\0' && matchUp == false && queueUp == true) { // Vérifie si l'alias n'est pas vide
                         return {
                             ...player,
                             waitingTime: player.waitingTime + 1,
@@ -93,10 +108,11 @@ function Matchmaking(){
             }));
         }, 1000);  // Met à jour toutes les secondes (1000ms)
         return () => clearInterval(intervalId);
-    }, []);
+    }, [])
 
 
     const areValuesUnique = (value1, value2, value3, value4, value5) => {
+        console.log(value1, value2, value3, value4, value5);
         const nonEmptyValues = [value1, value2, value3, value4, value5].filter(value => value !== '\0');
         let test = new Set(nonEmptyValues);
         return nonEmptyValues.length === test.size;
@@ -119,13 +135,15 @@ function Matchmaking(){
           .then(response => {
             const data = response.data;
             if(username && areValuesUnique(waitingPlayer.players[0].alias, waitingPlayer.players[1].alias, waitingPlayer.players[2].alias, waitingPlayer.players[3].alias, username)) {
-              joinMatchmakingQueue();
+              joinMatchmakingQueue(data.winrate);
             } else {
               alert("User/Alias doesn't exist or already in use.");
             }
           })
           .catch(error => {
             if (error.response && error.response.data) {
+                setUsername('');
+                setPassword('');
                 alert(error.response.data.error); // Affiche le message d'erreur renvoyé par le backend
             } else {
                 alert("An error occurred while processing your request.");
@@ -135,11 +153,12 @@ function Matchmaking(){
 
 
     // fonction qui gere les match
-    const handleMatches = (indexP1, indexP2) => {
+    const handleMatches =   async (indexP1, indexP2) => {
 
         name = waitingPlayer.players[indexP1].alias;
         name2 = waitingPlayer.players[indexP2].alias;
         MATCH=[waitingPlayer.players[indexP1].alias, indexP1, waitingPlayer.players[indexP2].alias, indexP2];
+        popUp();
         setMatchUp(true);
         setWaitingPLayer(prevState => ({
             ...prevState,
@@ -147,7 +166,7 @@ function Matchmaking(){
                 if (index === indexP1 || index === indexP2) {
                     return {
                         alias: '\0',
-                        winrate: 0,
+                        winrate: -1,
                         waitingTime: 0,
                         matched: false,
                     };
@@ -159,36 +178,34 @@ function Matchmaking(){
     }
 
     //fonction de reset lors de l'annulation de la rechercher
-    const resetQueue = () => {
+    const resetQueue = async () => {
         
         setWaitingPLayer(prevState => ({
             ...prevState,
             players: prevState.players.map(() => ({
                 alias: '\0',
-                winrate: 0,
+                winrate: -1,
                 waitingTime: 0,
                 matched: false,
               }))
             }));
+        nbPlayers = 0;
+        queueUp=false;
     }
     // fonction qui verifie si des users matchent a utiliser avec des intervales
     useEffect(() => {
-            const intervalId = setInterval(() => {
-                // Verifie si chaque winrate a une difference de 5 ou moins par rapport aux autres winrates 
-                waitingPlayer.players.every((player, index) => {
-                    for (let i = 0; i < waitingPlayer.players.length; i++) {
-                        if (i !== index) {
-                            const diff = Math.abs(player.winrate - waitingPlayer.players[i].winrate);
-                            if (diff <= (5 + (player.waitingTime / 5)) && diff >= (-5 - (player.waitingTime / 5)) && matchUp === false && player.alias !==  '\0' && waitingPlayer.players[i].alias !== '\0') { // ajout de l'ecart en fonction du temps en se basant sur le player.waitingTime
-                                handleMatches(index, i);
-                                return;
-                            }
+        console.log(waitingPlayer.players);
+            // Verifie si chaque winrate a une difference de 5 ou moins par rapport aux autres winrarates
+            waitingPlayer.players.forEach((player, index) => {
+                for (let i = 0; i < waitingPlayer.players.length; i++) {
+                    if (i !== index) {
+                        const diff = Math.abs(player.winrate - waitingPlayer.players[i].winrate);
+                        if (diff <= (5 + (player.waitingTime / 5)) && player.alias !== '\0' && waitingPlayer.players[i].alias !== '\0' && player.winrate !== -1 && waitingPlayer.players[i].winrate !== -1 && queueUp == true) {                            handleMatches(index, i);
+                            return; // Sortir de la boucle dès qu'une correspondance est trouvée
                         }
                     }
-                    return;
-                });
-            }, 100);
-        return () => clearInterval(intervalId);
+                }
+            });
     }, [waitingPlayer]);
 
 
@@ -199,17 +216,32 @@ function Matchmaking(){
     // }, [waitingPlayer.players.matched]);
 
     // Fonction pour rejoindre la file d'attente de matchmaking
-    const joinMatchmakingQueue = async () => {
-        try {
+    const joinMatchmakingQueue = async (wr) => {
+
+            let intwr;
             if (waitingPlayer.players && nbPlayers < 4) {
-                if(!username){
+                if(!username && areValuesUnique(waitingPlayer.players[0].alias, waitingPlayer.players[1].alias, waitingPlayer.players[2].alias, waitingPlayer.players[3].alias, host)){
+                    nbPlayers += 1;
+                    const res_stat = axios.post('https://localhost:8080/api/statsGames',
+                    {
+                      'username': host,
+                    },
+                    {}).then((res_stat) => {
+                      if (res_stat.data.error)
+                        setStatsGames({'message': ""});
+                      else
+                        intwr = res_stat.wrCheck;
+                    }).catch((error) => {
+                        alert(error.response.data.error);;
+                    });
                     setWaitingPLayer(prevState => {
                         const index = prevState.players.findIndex(player => player.alias === '\0');
                         if (index !== -1) {
                             const updatedPlayers = [...prevState.players];
                             updatedPlayers[index] = {
                                 ...updatedPlayers[index],
-                                alias: user.get("username"),
+                                alias: host,
+                                winrate:intwr,
                             };
                             return {
                                 ...prevState,
@@ -220,7 +252,21 @@ function Matchmaking(){
                     });
                     //affecter le winrate
                 }
-                else {
+                else if(areValuesUnique(waitingPlayer.players[0].alias, waitingPlayer.players[1].alias, waitingPlayer.players[2].alias, waitingPlayer.players[3].alias, username)){
+                    nbPlayers += 1;
+                    const res_stat2 = axios.post('https://localhost:8080/api/statsGames',
+                    {
+                      'username': username,
+                    },
+                    {}).then((res_stat2) => {
+                      if (res_stat2.data.error)
+                        setStatsGames2({'message': ""});
+                      else{
+                        intwr = res_stat2.data.wrCheck;
+                      }
+                    }).catch((error) => {
+                        alert(error.response.data.error);;
+                    });
                     setWaitingPLayer(prevState => {
                         const index = prevState.players.findIndex(player => player.alias === '\0');
                         if (index !== -1) {
@@ -228,6 +274,7 @@ function Matchmaking(){
                             updatedPlayers[index] = {
                                 ...updatedPlayers[index],
                                 alias: username,
+                                winrate:intwr,
                             };
                             return {
                                 ...prevState,
@@ -237,16 +284,13 @@ function Matchmaking(){
                         return prevState;
                     });
                 }
-                nbPlayers += 1;
+                queueUp = true;
             }
             else
                 console.log('FAILED');
             setIsInQueue(true);
             setPassword('');
             setUsername('');
-        } catch (error) {
-            console.error('Erreur lors de la tentative de rejoindre la file d\'attente de matchmaking :', error);
-        }
     };
 
     function displayWaitingPlayers(){
@@ -257,19 +301,16 @@ function Matchmaking(){
                         {player.alias != '\0' && <p>Joueur : {player.alias} | Temps d'attente : {player.waitingTime} secondes</p>}
                     </div>
                 ))}
-                {
-                    console.log('waitingPlayer:', waitingPlayer.players)
-                }
-                {/* {
-                    waitingPlayer.players.forEach((element, index) => {
-                        <div key={index}>
-                            <p>Joueur : {element.alias} | Temps d'attente : {element.waitingTime} secondes</p>
-                        </div>
-                    })
-                } */}
             </div>
         );
     };
+
+    function popUp() {
+        setShowPopup(true);
+        setTimeout(function(){
+            setShowPopup(false);
+        }, 3000);
+    }
 
     const toggleForm = () => {
         setShowForm(!showForm);
@@ -277,9 +318,7 @@ function Matchmaking(){
     return (
         <>
             <div>
-                {areValuesEmpty(waitingPlayer.players[0].alias, waitingPlayer.players[1].alias, waitingPlayer.players[2].alias, waitingPlayer.players[3].alias) ? (
-                    <button className="toconnect" onClick={joinMatchmakingQueue}>Rejoindre la file d'attente</button>
-                ) : (
+                {!areValuesEmpty(waitingPlayer.players[0].alias, waitingPlayer.players[1].alias, waitingPlayer.players[2].alias, waitingPlayer.players[3].alias) && (
                     <div class="container-board">
                         <div>
                             <p>En attente d'autres joueurs</p>
@@ -288,7 +327,13 @@ function Matchmaking(){
                         </div>
                     </div>
                 )}
-                <button className="toconnect" onClick={toggleForm}>Connecter un autre joueur</button>
+                {nbPlayers < 4  && (
+                    <div>
+                        <button className="toconnect" onClick={joinMatchmakingQueue}>Rejoindre la file d'attente</button>
+                        <button className="toconnect" onClick={toggleForm}>Connecter un autre joueur</button> 
+                    </div>
+                
+                )}
                 {showForm && (
                     <div className="pop-up-overlay">
                         <div className="pop-up">
@@ -308,9 +353,19 @@ function Matchmaking(){
                         </div>
                     </div>
 			    )}
-                { matchUp == true && (
-                    <ShowTicTacToeM user={name} opponent={name2} matchUp ={matchUp}/>
+                {showPopup == true && (
+                    <div className="pop-up-overlay">
+                        <div className="pop-up">
+                            <h1>Match Found !</h1>
+                            <p>{name} vs {name2}</p>
+                        </div>
+                    </div>
                 )}
+                { matchUp == true && showPopup == false && (
+                    <ShowTicTacToeM user={name} opponent={name2} setMatchUp={setMatchUp} matchUp={matchUp}/>
+                )}
+                {/*-pour une compilation plus rapide: recuperer le docker.yml, le dockefile et le .env 
+                   -le popUp dans la condition n'affiche rien(ni le pop-up ni le jeu)*/}
             </div>
         </>
     );

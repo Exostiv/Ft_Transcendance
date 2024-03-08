@@ -15,6 +15,7 @@ var maxSpeed = 25;
 var players =[];
 var x = 0;
 
+
 const setupPlayers = () => {
 
   for (let i = 1; i <= 2; i++) {
@@ -299,6 +300,8 @@ const PongGame = () => {
     const targetFPS = 200;
     const frameInterval = 1000 / targetFPS;
     const update = () => {
+      user.set("pongAccess", 'fin');
+    console.log("access dans choix = ", user.get("pongAccess"));
       const currentTime = performance.now();
       const deltaTime = currentTime - lastFrameTime;
   
@@ -383,7 +386,6 @@ const PongGame = () => {
       axios.post('https://localhost:8080/api/pong2phistory/', {
           p1,
           p2,
-          winnerN,
           p1score,
           p2score,
           p2State,

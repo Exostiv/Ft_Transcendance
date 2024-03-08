@@ -1,8 +1,12 @@
-import React, { useState } from "react";
-import { Link  } from 'react-router-dom';
-//import useUser from "../hooks/useUserStorage";
-//import axios from 'axios';
-//import './TicTacToe.css';
+import React, { useEffect, useState } from "react";
+import axios from 'axios';
+
+
+var winningPlayer = "";
+var loser = "";
+var matchAff = true;
+var gameState = "";
+
 function Square({value, onSquareClick}) {
     return (
         <button className="square" onClick={onSquareClick}>
@@ -11,12 +15,13 @@ function Square({value, onSquareClick}) {
     );
 }
 
-function ShowTicTacToeM({user, opponent, matchUp}){
+function ShowTicTacToeM({user, opponent, setMatchUp, matchUp}){
 
     //const user = useUser("user");
 	const randomNum = Math.random(); //genere un num entre 0 et 1
     const [xIsNext, setXIsNext] = useState(Math.random() < 0.5);
     const [squares, setSquares] = useState(Array(9).fill(null));
+	const [clicked, setClicked] = useState(false);
 	const [player1, setPlayer1] = useState({
 
 		playerSymbol : (randomNum < 0.5 ? 'X' : 'O'), // si rNum < 0.5 symbole = X et invercement
@@ -52,10 +57,17 @@ function ShowTicTacToeM({user, opponent, matchUp}){
 		return squares.every(square => square !== null);
 	}
 
+	useEffect(() => {
+		if(matchUp == false)
+			matchAff =false;
+		if(matchUp == true)
+			matchAff =true;
+	}, [matchUp]);
+    
 	const winner = calculateWinner(squares);
 	const tie = checkBoardFull() && !winner;
-	let status;
-	let nextPlayer;
+	var status;
+	var nextPlayer;
 	if (winner) {
 		if(winner === player1.playerSymbol){
 			status = `Winner : ${player1.playerAlias}`;
@@ -66,21 +78,78 @@ function ShowTicTacToeM({user, opponent, matchUp}){
 	} else {
 		if(tie){
 			status = "It's a Tie!";
+            winningPlayer = "draw";
 		} else{
 			nextPlayer = `Next player: ${xIsNext ? player1.playerAlias : opponent}`;
 		}
 	}
 
+    const historySave = async() => { //erreur undefined
+        if(winner === player1.playerSymbol){
+			winningPlayer = player1.playerAlias;
+		}
+		else if(winner === player2.playerSymbol){
+			winningPlayer = player2.playerAlias;
+		}
+		findLoser(winningPlayer);
+		//setMatchAff(false);
+    }
+
+    function findLoser(winningPlayer) {
+        if(winningPlayer === player1.playerAlias){
+            loser = player2.playerAlias;
+        }
+        else if (winningPlayer === player2.playerAlias){
+            loser = player1.playerAlias;
+        }
+		else
+		{
+			loser = player1.playerAlias;
+			winningPlayer = player2.playerAlias;
+		}
+    }
+
+
+    function handleHist() {
+		setMatchUp(false);
+		setClicked(true);
+    }
+    //fonction pour communiquer aux back les infos de partie 
+    useEffect(() => {
+		let p2State = "User";
+		let p1 = player1.playerAlias;
+		let p2 = player2.playerAlias;
+		let gameState = winningPlayer;
+		console.log("p1 = ", p1, "p2 = ", p2, "p2State  = ", p2State, " gameState = ", gameState, " winningPlaye r= ", winningPlayer);
+        if(winningPlayer != ""){
+            axios.post('https://localhost:8080/api/ttthistory/', {
+				p1,
+				p2,
+				p2State,
+				gameState,
+				winningPlayer,
+            })
+            .then(response => {
+                const data = response.data;
+				winningPlayer = "";
+            })
+            .catch(error => {
+                if (error.response && error.response.data) {
+                    alert(error.response.data.error); // Affiche le message d'erreur renvoyé par le backend
+                } else {
+                    alert("An error occurred while processing your request.");
+                }});
+        }
+    }, [winningPlayer]);
+    
     return(
         <>
-			{(winner || tie) && (
+			{(winner || tie) && !clicked && historySave() && (
                 <div className="popup-container">
                     <div className="popup">
                         <div className="alert alert-success" role="alert">
                             <h4 className={`status ${winner ? 'winner' : ''} ${tie ? 'tie' : ''}`}>{status}</h4>
-                            <div className="linker">
-                                <a href="#" class="btn btn-primary btn-lg active" role="button" aria-pressed="true">Return</a>
-                            </div>
+                            <button type="button" class="btn btn-secondary" onClick={handleHist}>gg</button>
                         </div>
                     </div>
                 </div>
@@ -93,21 +162,25 @@ function ShowTicTacToeM({user, opponent, matchUp}){
 						</div>
 					</div>
 				)}
-				<div className="board-row">
-					<Square value={squares[0]} onSquareClick={() => handleClick(0)}/>
-					<Square value={squares[1]} onSquareClick={() => handleClick(1)}/>
-					<Square value={squares[2]} onSquareClick={() => handleClick(2)}/>
-				</div>
-				<div className="board-row">
-					<Square value={squares[3]} onSquareClick={() => handleClick(3)}/>
-					<Square value={squares[4]} onSquareClick={() => handleClick(4)}/>
-					<Square value={squares[5]} onSquareClick={() => handleClick(5)}/>
-				</div>
-				<div className="board-row">
-					<Square value={squares[6]} onSquareClick={() => handleClick(6)}/>
-					<Square value={squares[7]} onSquareClick={() => handleClick(7)}/>
-					<Square value={squares[8]} onSquareClick={() => handleClick(8)}/>
-				</div>
+			{ matchAff == true && (	
+					<div>
+						<div className="board-row">
+							<Square value={squares[0]} onSquareClick={() => handleClick(0)}/>
+							<Square value={squares[1]} onSquareClick={() => handleClick(1)}/>
+							<Square value={squares[2]} onSquareClick={() => handleClick(2)}/>
+						</div>
+						<div className="board-row">
+							<Square value={squares[3]} onSquareClick={() => handleClick(3)}/>
+							<Square value={squares[4]} onSquareClick={() => handleClick(4)}/>
+							<Square value={squares[5]} onSquareClick={() => handleClick(5)}/>
+						</div>
+						<div className="board-row">
+							<Square value={squares[6]} onSquareClick={() => handleClick(6)}/>
+							<Square value={squares[7]} onSquareClick={() => handleClick(7)}/>
+							<Square value={squares[8]} onSquareClick={() => handleClick(8)}/>
+						</div>
+					</div>
+				)}
 			</div>		
         </>
     );

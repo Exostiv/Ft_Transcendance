@@ -1,6 +1,7 @@
 import React from 'react';
 import QrCodeReact from 'react-qr-code';
 import useUser from '../../hooks/useUserStorage';
+import axios from "axios";
 import { useState } from "react";
 import { useEffect } from 'react';
 
@@ -12,14 +13,18 @@ const QrCode = (props) => {
   useEffect(() => {
     const fetchQrCode = async () => {
       try {
+
+        const responsejwt = await axios.post(
+          `https://localhost:8080/api/auth/get-tokenjwt/${user.get("id")}/`, {},{}
+        );
         const response = await fetch("https://localhost:8080/api/auth/qrcode/", {
           method: "POST",
           headers: {
-            'Authorization': `Bearer ${user.get("jwt_token")}`,
+            'Authorization': `Bearer ${responsejwt.data.jwt_token}`,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            username: user.get("username"),
+            pseudo: user.get("pseudo"),
             secret: user.get("2FA_secret")
           })
         });

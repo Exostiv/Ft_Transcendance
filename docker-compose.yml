@@ -1,7 +1,5 @@
 version: '3'
 services:
-  env_file:
-    - ./backend.env
   # FRONTEND
   front:
    build:
@@ -64,6 +62,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    env_file:
+      - ./backend/.env
     networks:
       - transcendence
     restart: unless-stopped
@@ -71,3 +71,4 @@ services:
 networks:
   transcendence:
     name: transcendence
+

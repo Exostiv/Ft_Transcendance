@@ -1,8 +1,5 @@
-from django.shortcuts import redirect
 from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
-from oauth2_provider.models import Application
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from requests import post
 from django.conf import settings
 import json
@@ -11,464 +8,18 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.http import require_POST
-from django.views.decorators.http import require_GET
-from rest_framework.permissions import AllowAny
-from rest_framework.decorators import permission_classes
-from rest_framework.views import APIView
-from django.views import View
 import requests
-from dotenv import load_dotenv
-### AUTH
-from .auth_access_token import get_access_token
-from .auth_user_infos import get_user_info
-#from .jwt_generator import generate_jwt
-from .two_factor_auth import generate_secret, check_valid_code, qrcode_generator
 import os
 from django.http import HttpResponse
-import base64
-import pyotp
-from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, Avatar
-import random
-import base64
+from .models import User, GamePong, GameTTT, Tournament, Avatar
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
-from django.http import HttpResponseNotFound, FileResponse
-from .convert import get_base64_from_buffer, get_base64_from_uri
-from django.forms.models import model_to_dict
-from django.core.serializers.json import DjangoJSONEncoder
-from .hash_password import hash_password
-import hashlib
 from django.contrib.auth.hashers import make_password, check_password
-from django.core.mail import send_mail
-from django.utils.crypto import get_random_string
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from .decorators import jwt_token_required, refresh_token_required, oauth2_token_required
+from datetime import datetime, date
+from .utils import usernameAlreadyUse, pseudoAlreadyUse
 
-######################################################### .ENV #########################################################
-load_dotenv()
-CLIENT_ID = os.getenv('CLIENT_ID')
-CLIENT_SECRET = os.getenv('CLIENT_SECRET')
-REDIRECT_URI = os.getenv('REDIRECT_URI')
-#REDIRECT_URIS = os.getenv('REDIRECT_URIS').split(',')
-
-######################################################### USER DATA ##################################################
-
-###### AUTHORIZE URL ######
-# optimiser
-@csrf_exempt
-def get_authorize_url(request):
-    if request.method == 'POST':
-        authorization_url = f'https://api.intra.42.fr/oauth/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code'
-        return JsonResponse({'authorization_url': authorization_url})
-    
-    return JsonResponse({'error': 'Methode non autorisée'}, status=405)
-    
-
-##### PHOTO DE PROFILE INTRA ####
-@csrf_exempt
-def get_profile_image(request):
-    if request.method == 'POST':
-        access_token = request.headers.get('Authorization').split(' ')[1]
-        response = requests.get('https://api.intra.42.fr/v2/me', headers={'Authorization': f'Bearer {access_token}'})
-        data = response.json()
-        
-        image_url = data.get('image', {}).get('link', None)
-
-        if image_url:
-            return JsonResponse({'image_url': image_url})
-        else:
-            return JsonResponse({'error': 'Image de profil indisponible'}, status=400)
-
-    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
-
-#### INFOS USER ####
-## A changer en get ??
-@csrf_exempt
-def get_infos_user(request):
-    if request.method == 'POST':
-        access_token = request.headers.get('Authorization').split(' ')[1]
-        response = requests.get('https://api.intra.42.fr/v2/me', headers={'Authorization': f'Bearer {access_token}'})
-        data = response.json()
-
-        if data:
-            return JsonResponse(data)
-        else:
-            return JsonResponse({'error': 'Infos user indisponible'}, status=400)
-
-    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
-
-#### ALL DATA USER ##
-@csrf_exempt
-def get_all_user_data(request):
-
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        code = data.get('code')
-
-        access_token = get_access_token(CLIENT_ID, CLIENT_SECRET, code, REDIRECT_URI)
-
-        user_info = get_user_info(access_token)
-        user_picture = user_info.get('image', {}).get('link', None)
-
-        try:
-            user = User.objects.filter(pseudo=user_info.get('login')).first()
-            first_access = False
-        
-            if not user:
-                avatar = Avatar()
-                avatar.image_url_42 = user_picture
-                avatar.save()
-
-
-                user, created = User.objects.get_or_create(
-                pseudo=user_info.get('login'),
-                defaults={
-                    'username': user_info.get('login'),
-                    'secret_2auth': generate_secret(access_token),
-                    'status': "online",
-                    'wins': 0,
-                    'loses': 0,
-                    'avatar': avatar,}
-                )
-                refresh = RefreshToken.for_user(user)
-                first_access = True
-                user.save()
-            
-            refresh = RefreshToken.for_user(user)
-            jwt_token = str(refresh.access_token)
-            user.status = "online"
-            user.save()
-
-            
-            # AJOUTER image + image id dans user + color ball + token refresh + color paddle + score ??
-            return JsonResponse({
-                'id': user.id,
-                'username': user.username,
-                'pseudo': user.pseudo,
-                '2FA_secret': user.secret_2auth,
-                '2FA_valid': False,
-                'avatar_update': user.avatar.avatar_update,
-                'status_2FA': user.has_2auth,
-                'first_access': first_access,
-                'access_token': access_token,
-                'avatar_id': user.avatar.id,
-                'status': user.status,
-                'jwt_token': jwt_token
-})
-
-        except json.decoder.JSONDecodeError as e:
-            return JsonResponse({'error': 'Reponse JSON et access_token indisponible'}, status=500)
-
-    if request.method == 'GET':
-        return JsonResponse({'message': 'GET request received'})
-
-##################################################### TWO FACTOR AUTH ###########################################
-
-
-@csrf_exempt
-def validate_2fa(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        secret = data.get('secret')
-        code = data.get('code')
-
-        if not secret or not code or not check_valid_code(secret, code):
-            return JsonResponse({'status': False})
-        # if secret != code:
-        #    return JsonResponse({'status': False})
-        try:
-            user = User.objects.get(secret_2auth=secret)
-            user.has_2auth = True
-            user.save()
-
-            return JsonResponse({'status': True})
-        except User.DoesNotExist:
-            return JsonResponse({'error': 'Utilisateur non trouvé'}, status=404)
-        return JsonResponse({'status': True})
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
-
-
-
-@csrf_exempt
-def enable_2fa(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        secret = data.get('secret')
-        code = data.get('code')
-
-        if not secret or not code or not check_valid_code(secret, code):
-            return JsonResponse({'status': False})
-
-      #  try:
-       #     user = User.objects.get(secret_2auth=secret)
-        #    user.has_2auth = True
-         #   user.save()
-
-          #  return JsonResponse({'message': 'Enable 2FA avec succès'}, status=200)
-        #except User.DoesNotExist:
-         #   return JsonResponse({'error': 'Utilisateur non trouvé'}, status=404)
-
-
-        return JsonResponse({'status': True})
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
-
-@csrf_exempt
-def disable_2fa(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        secret = data.get('secret')
-
-        if not secret:
-            return JsonResponse({'status': False})
-        try:
-            user = User.objects.get(secret_2auth=secret)
-            user.has_2auth = False
-            user.save()
-
-            return JsonResponse({'status': True})
-        except User.DoesNotExist:
-            return JsonResponse({'error': 'Utilisateur non trouvé'}, status=404)
-        return JsonResponse({'status': True})
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
-
-@csrf_exempt
-def get_qrcode(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        secret = data.get('secret')
-
-        image_content = qrcode_generator(username, secret)
-        buffer = base64.b64decode(image_content)
-
-        response = HttpResponse(buffer, content_type="image/png")
-        response['Content-Disposition'] = f'inline; filename="qrcode.png"'
-        return response
-    else:
-        return JsonResponse({'error': str(e)}, status=500)
-
-def usernameAlreadyUse(new_username):
-    try:
-        user_count = User.objects.filter(username=new_username).count()
-        return user_count > 0
-    except User.DoesNotExist:
-        return False
-
-def pseudoAlreadyUse(new_username):
-    try:
-        user_count = User.objects.filter(pseudo=new_username).count()
-        return user_count > 0
-    except User.DoesNotExist:
-        return False
-
-######################################################## UPDATE USERNAME ############################################
-@csrf_exempt
-def update_username(request, id):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        new_username = data.get('username', '')
-
-        if not new_username:
-            return JsonResponse({'error': 'Veuillez entrer un nom d\'utilisateur'}, status=400)
-        if len(new_username) < 5:
-            return JsonResponse({'error': 'Le nom d\'utilisateur doit contenir au moins 5 caractères'}, status=400)
-        if len(new_username) > 10:
-            return JsonResponse({'error': 'Le nom d\'utilisateur doit contenir au maximum 10 caractères'}, status=400)
-        if not new_username.isalpha():
-            return JsonResponse({'error': 'Le nom d\'utilisateur ne peut contenir que des lettres'}, status=400)
-        if (usernameAlreadyUse(new_username)):
-            return (JsonResponse({'error': 'Le nom d\'utilisateur est déjà utliser, veuillez en choisir un autre...'}, status=400))
-        if (pseudoAlreadyUse(new_username)):
-            return (JsonResponse({'error': 'Le nom d\'utilisateur est déjà utliser, veuillez en choisir un autre...'}, status=400))
-
-        try:
-            user = User.objects.get(id=id)
-            user.username = new_username
-            user.save()
-
-            return JsonResponse({'message': 'Nom d\'utilisateur mis à jour avec succès'}, status=200)
-        except User.DoesNotExist:
-            return JsonResponse({'error': 'Utilisateur non trouvé'}, status=404)
-
-    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
-
-
-#################################################### PASSWORD TOURNAMENT ####################################
-
-@csrf_exempt
-def create_password_tournament(request, id):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        new_password = data.get('new_password')
-        repeat_new_password = data.get('repeatPassword')
-
-
-        if new_password != repeat_new_password:
-            return JsonResponse({'error': 'Le mot de passe ne correspond pas'}, status=400)
-        try:
-            user = User.objects.get(id=id)
-            user.password_tournament = make_password(new_password)
-            if user.register:
-                user.password = make_password(new_password)
-            user.save()
-
-            return JsonResponse({'message': 'Le mot de passe Tournois mis à jour avec succès'}, status=200)
-        except User.DoesNotExist:
-            return JsonResponse({'error': 'Utilisateur non trouvé'}, status=404)
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
-
-############################################# AUTH SIGN IN SIGN UP ##########################################
-
-#def hashed_password(password):
- #   return hashlib.sha256(password.encode()).hexdigest()
-
-@csrf_exempt
-def signup(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        password = data.get('password')
-        repeat_password = data.get('repeatPassword')
-
-        
-        existing_users = User.objects.filter(pseudo=username) #reprendre fonction // ou username
-        existing_username = User.objects.filter(username=username)
-        if existing_username.exists():
-            return JsonResponse({'error': 'Username already exists'}, status=400)
-        if existing_users.exists():
-            return JsonResponse({'error': 'L\'utilisateur existe déja, veuillez en choisir un autre'}, status=400)
-        if len(username) < 5:
-            return JsonResponse({'error': 'Le nom d\'utilisateur doit contenir au moins 5 caractères'}, status=400)
-        if len(username) > 10:
-            return JsonResponse({'error': 'Le nom d\'utilisateur doit contenir au maximum 10 caractères'}, status=400)
-        if len(password) < 5:
-            return JsonResponse({'error': 'Le mot de passe doit contenir au moins 5 caractères'}, status=400)
-        if password != repeat_password:
-            return JsonResponse({'error': 'Le mot de passe ne correspond pas'}, status=400)
-
-        avatar = Avatar()
-        avatar.save()
-    
-        user = User.objects.create(
-            username=username,
-            pseudo=username,
-            password=make_password(password),
-            password_tournament=make_password(password),
-            register=True,
-            avatar=avatar,
-            wins=0,
-            loses=0
-        )
-        user.secret_2auth = generate_secret(str(user.id))
-        user.save()
-
-        return JsonResponse({'status': True})
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
-
-@csrf_exempt
-def signin(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        password = data.get('password')
-
-        try:
-            user = User.objects.get(pseudo=username)
-        except User.DoesNotExist:
-            return JsonResponse({'error': 'L\'utilisateur n\'existe pas'}, status=400)
-
-        #hashed_password = make_password(password)
-
-        #if hashed_password != user.password:
-            #return JsonResponse({'error': 'Invalid password'}, status=400)
-        if not user.password:
-                return JsonResponse({'error': 'Connexion non autorisée, Veuillez vous connecter via 42'}, status=400)
-        elif not check_password(password, user.password):
-            return JsonResponse({'error': 'Invalid password'}, status=400)
-
-        user.status = "online"
-        user.save()
-
-        return JsonResponse({
-            'id': user.id,
-            'register': user.register,
-            'username': user.username,
-            'pseudo': user.pseudo,
-            '2FA_secret': user.secret_2auth,
-            '2FA_valid': False,
-            'status_2FA': user.has_2auth,
-            'wins': user.wins,
-            'avatar_id': user.avatar.id,
-            'avatar_update': user.avatar.avatar_update,
-            'status': user.status,
-            'loses': user.loses
-        })
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
-
-
-
-#################################################### PROFILE PICTURE ####################################
-def get_avatar42_image(request, avatar_id):
-    avatar = get_object_or_404(Avatar, id=avatar_id)
-    image_url42 = avatar.image_url_42
-
-    return JsonResponse({'image_url': image_url42})
-
-def get_avatar_image(request, avatar_id):
-    avatar = get_object_or_404(Avatar, id=avatar_id)
-    image_url = request.build_absolute_uri(avatar.image.url)
-
-    return JsonResponse({'image_url': image_url})
-
-@csrf_exempt
-def update_avatar_image(request, avatar_id):
-    avatar = get_object_or_404(Avatar, id=avatar_id)
-
-    if request.method == 'POST':
-        
-        image_file = request.FILES.get('image')
-        if image_file:
-            
-            avatar.image = image_file
-            avatar.avatar_update = True
-            avatar.save()
-        
-            #image_url = os.path.join(settings.MEDIA_URL, str(avatar.image))
-            image_url = avatar.image.url
-            return JsonResponse({'message': 'Image updated successfully', 'image_url': image_url})
-        
-        else:
-            return JsonResponse({'error': 'No image provided'}, status=400)
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=405)
-
-
-################################## 2FA EMAIL##################
-
-@csrf_exempt
-def send_verification_code(request):
-    if request.method == 'POST':
-        email = request.POST.get('email')
-        if email:
-            
-            verification_code = get_random_string(length=6, allowed_chars='0123456789')
-
-            
-            send_mail(
-                'Code de vérification',
-                f'Votre code de vérification est : {verification_code}',
-                'from@example.com',
-                [email],
-                fail_silently=False,
-            )
-            return JsonResponse({'success': True})
-        else:
-            return JsonResponse({'success': False, 'error': 'Veuillez fournir une adresse e-mail.'})
 
 ############################ FRIENDS ###########################
 @csrf_exempt
@@ -520,7 +71,7 @@ def get_following(request):
         u = data.get('username')
         try:
             user = User.objects.get(username=u)
-            
+
         except User.DoesNotExist:
             return (JsonResponse({'error': 'L\'utilisateur n\'existe pas.'}, status=200))
         friends = user.getFollowing()
@@ -528,6 +79,109 @@ def get_following(request):
         for f in friends:
             lst_f.append(f.username)
         return (JsonResponse({'message': ','.join(lst_f)}, status=200))
+
+################### STATS JOUEUR ##################
+
+@csrf_exempt
+def stats_games(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        u = data.get('username')
+        
+        try:
+            user = User.objects.get(username=u)
+            nb_win_tot = user.getCountWinsPong() + user.getCountWinsTTT()
+            nb_lose_tot = user.getCountLosesPong() + user.getCountLosesTTT()
+            nb_win_pong = user.getCountWinsPong()
+            nb_lose_pong = user.getCountLosesPong()
+            nb_win_ttt = user.getCountWinsTTT()
+            nb_lose_ttt = user.getCountLosesTTT()
+            nb_draw_ttt = user.getCountDrawTTT()
+            if (nb_win_pong + nb_lose_pong == 0):
+                wr_pong = '0'
+            else:
+                wr_pong = (nb_win_pong / (nb_win_pong + nb_lose_pong)) * 100
+            if (nb_win_ttt + nb_lose_ttt == 0):
+                wr_ttt = '0'
+            else:
+                wr_ttt = (nb_win_ttt / (nb_win_ttt + nb_lose_ttt + nb_draw_ttt)) * 100
+            if (nb_win_tot + nb_lose_tot == 0):
+                wr_tot = '0'
+            else:
+                wr_tot = (nb_win_tot / (nb_win_tot + nb_lose_tot)) * 100
+            if wr_ttt == '0':
+                wrCheck = 0
+            else:
+                wrCheck = wr_ttt
+        except User.DoesNotExist:
+            return (JsonResponse({'error': 'L\'utilisateur n\'existe pas.'}, status=200))
+        
+        return (JsonResponse(
+            {
+                'total_win': nb_win_tot,
+                'total_lose': nb_lose_tot,
+                'pong_win': nb_win_pong,
+                'pong_lose': nb_lose_pong,
+                'ttt_win': nb_win_ttt,
+                'ttt_lose': nb_lose_ttt,
+                'tot_wr': str(wr_tot)[:5],
+                'pong_wr': str(wr_pong)[:5],
+                'ttt_wr': str(wr_ttt)[:5],
+                'draw_ttt': nb_draw_ttt,
+                'wrCheck': wrCheck
+            }
+        ))
+
+@csrf_exempt
+def list_games(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        u = data.get('username')
+
+        try:
+            user = User.objects.get(username=u)
+            list_games = []
+            tmp = user.winnerpong.all().union(user.loserpong.all(), user.loserpong2.all() )
+            for g in tmp:
+                list_games.append(
+                    {
+                        'type_game': 'PONG',
+                        'winner': g.winner.username,
+                        'loser': g.loser.username,
+                        'loser2': g.loser2.username if g.loser2 else '',
+                        'date': g.date,
+                        'score': g.score,
+                        'tournament': f'{g.tournament.creator}\'s tournament' if g.tournament else '', 
+                    })
+            tmp = user.winnerttt.all().union(user.loserttt.all())
+            for g in tmp:
+                list_games.append(
+                    {
+                        'type_game': 'TICTACTOES',
+                        'winner': g.winner.username,
+                        'loser': g.loser.username,
+                        'date': g.date,
+                    })
+            tmp = user.draw_user1.all().union(user.draw_user2.all())
+            for g in tmp:
+                list_games.append(
+                    {
+                        'type_game': 'TICTACTOES',
+                        'draw_user1': g.draw_user1.username,
+                        'draw_user2': g.draw_user2.username,
+                        'date': g.date,
+                    }
+                )
+            lst = sorted(list_games, key=lambda x: datetime.strptime(x['date'], '%d/%m/%Y %H:%M'), reverse=True)
+        except User.DoesNotExist:
+            return (JsonResponse({'error': 'L\'utilisateur n\'existe pas.'}, status=200))
+
+        return (JsonResponse(
+                {
+                    'list_object': lst
+                }
+            ))
+
 
 #################################################### SIGNINTOURNAMENT ####################################
 @csrf_exempt
@@ -547,18 +201,8 @@ def signintournament(request):
         user.status = "online"
         user.save()
         return JsonResponse({
-            'id': user.id,
-            'register': user.register,
             'username': user.username,
             'pseudo': user.pseudo,
-            '2FA_secret': user.secret_2auth,
-            '2FA_valid': False,
-            'status_2FA': user.has_2auth,
-            'wins': user.wins,
-            'avatar_id': user.avatar.id,
-            'avatar_update': user.avatar.avatar_update,
-            'status': user.status,
-            'loses': user.loses
         })
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=400)
@@ -569,9 +213,6 @@ def checkalias(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         username = data.get('username')
-        # userExist = User.objects.get(username=username)
-        # if(userExist)
-        #     return JsonResponse({'error': 'Someone already\'s using this Pseudo'}, status=400)
         if len(username) < 5:
             return JsonResponse({'error': 'The alias must contain at least 5 characters'}, status=400)
         if len(username) > 10:
@@ -589,11 +230,32 @@ def checkalias(request):
 def begintournament(request):
     if request.method == 'POST':
         data = json.loads(request.body)
+        creator_t = data.get('creator')
         playersUsers = data.get('playersUser')
         playersAlias = data.get('playersAlias')
-        tournamentID = 1
+
+        try:
+            trnmt = Tournament.objects.create(
+                creator = User.objects.get(username=creator_t),
+                title = f'{creator_t}\'s tournament',
+                list_player_user = ','.join([username for username in playersUsers]),
+                list_player_other = ','.join([alias for alias in playersAlias]),
+             ) 
+            trnmt.save()
+            for guest in playersAlias:
+                try:
+                    User.objects.get(aliasname=guest)
+                except User.DoesNotExist:
+                    user_tmp = User.objects.create(
+                        aliasname = guest,
+                        username='',
+                        pseudo='',
+                    )
+                    user_tmp.save()
+        except :
+            return JsonResponse({'error': 'Error happened when prepared Tournament.'}, status=400)
         return JsonResponse({
-            'tournamentID': tournamentID
+            'tournamentID': trnmt.id
         })
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=400)
@@ -605,7 +267,32 @@ def updatetournament(request):
         tournamentID = data.get('tournamentID')
         player1 = data.get('p1')
         player2 = data.get('p2')
-        winner = data.get('winnerN')
+        winnerG = data.get('winnerN')
+        tournament = Tournament.objects.get(id=tournamentID)
+        try:
+            p1 = User.objects.get(username=player1)
+        except User.DoesNotExist:
+            p1 = User.objects.get(aliasname=player1)
+
+        try:
+            p2 = User.objects.get(username=player2)
+        except User.DoesNotExist:
+            p2 = User.objects.get(aliasname=player2)
+
+        loserG = p1
+        wG = p2
+        if player1 == winnerG:
+            loserG = p2
+            wG = p1
+
+        gp = GamePong(
+            score = "1-0",
+            winner = wG,
+            loser = loserG,
+            tournament = tournament,
+            date = datetime.now().strftime("%d/%m/%Y %H:%M"),
+        )
+        gp.save()
         return JsonResponse({
             'tournamentID': tournamentID
         })
@@ -617,12 +304,64 @@ def endtournament(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         tournamentID = data.get('tournamentID')
-        Winner = data.get('winnerN')
+        winnerG = data.get('winnerN')
+        try:
+            t = Tournament.objects.get(id=tournamentID)
+            try:
+                u = User.objects.get(username=winnerG)
+            except User.DoesNotExist:
+                u = User.objects.get(aliasname=winnerG)
+            t.winner_t = u
+            t.save()
+        except Tournament.DoesNotExist:
+            return (JsonResponse({'error', 'Tournament does not exist.'}, status=400))
         return JsonResponse({
             'tournamentID': tournamentID
         })
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
+def ttthistory(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        player1 = data.get('p1')
+        player2 = data.get('p2')
+        p2State = data.get('p2State')
+        gameState = data.get('gameState')
+        winnerG = data.get('winningPlayer')
+        p1 = User.objects.get(username=player1)
+        if (p2State == 'Alias' or p2State == 'IA'):
+            try:
+                p2 = User.objects.get(aliasname=player2)
+            except User.DoesNotExist:
+                p2 = User.objects.create(
+                    aliasname=player2,
+                    username='',
+                    pseudo='',
+                )
+        else:
+            p2 = User.objects.get(username=player2)
+
+        w = p2
+        l = p1
+        if gameState != "draw" and player1 == winnerG:
+            w = p1
+            l = p2
+        gt = GameTTT.objects.create(
+            is_draw = True if gameState == "draw" else False,
+            draw_user1 = p1 if gameState == "draw" else None,
+            draw_user2 = p2 if gameState == "draw" else None,
+            winner = w if gameState != "draw" else None,
+            loser = l if gameState != "draw" else None,
+            date = datetime.now().strftime("%d/%m/%Y %H:%M"),
+        )
+        gt.save()
+        return JsonResponse({'player1': player1})
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
 
 @csrf_exempt
 def pong2phistory(request):
@@ -633,8 +372,40 @@ def pong2phistory(request):
         p1score = data.get('p1score')
         p2score = data.get('p2score')
         p2State = data.get('p2State')
-        winner = data.get('winnerN')
+        winnerG = data.get('winnerN')
+
+        p1 = User.objects.get(username=player1)
+        if (p2State == 'Alias' or p2State == 'IA'):
+            try:
+                p2 = User.objects.get(aliasname=player2)
+            except User.DoesNotExist:
+                p2 = User.objects.create(
+                    aliasname=player2,
+                    username='',
+                    pseudo='',
+                )
+        else:
+            p2 = User.objects.get(username=player2)
+        p2.save()
+        w = p2
+        l = p1
+        if player1 == winnerG:
+            w = p1
+            l = p2
+
+        res = f"{p1score}-{p2score}"
+        if p1score<p2score:
+            res = f"{p2score}-{p1score}"
+
+        gp = GamePong(
+            score = res,
+            winner = w,
+            loser = l,
+            date = datetime.now().strftime("%d/%m/%Y %H:%M"),
+        )
+        gp.save()
         return JsonResponse({
+            # 'message': f'Game has been saved. GG to {w.username if w.username != '' else w.aliasname}',
             'player1': player1
         })
     else:
@@ -653,17 +424,88 @@ def pong3phistory(request):
         p2state = data.get('p2state')
         p3state = data.get('p3state')
         winner = data.get('winnerN')
+
+        p1 = User.objects.get(username=player1)
+        if (p2state == 'Alias'):
+            try:
+                p2 = User.objects.get(aliasname=player2)
+            except User.DoesNotExist:
+                p2 = User.objects.create(
+                    aliasname=player2,
+                    username='',
+                    pseudo='',
+                )
+        else:
+            p2 = User.objects.get(username=player2)
+        if (p3state == 'Alias'):
+            try:
+                p3 = User.objects.get(aliasname=player2)
+            except User.DoesNotExist:
+                p3 = User.objects.create(
+                    aliasname=player3,
+                    username='',
+                    pseudo='',
+                )
+        else:
+            p3 = User.objects.get(username=player3)
+        p2.save()
+        p3.save()
+        tab = [p1score, p2score, p3score]
+        tab = tab.sort(reverse=True)
+
+        w = p3
+        l = 'p3'
+        if player1 == winner:
+            w = p1
+            l = 'p1'
+        elif player2 == winner:
+            w = p2
+            l = 'p2'
+
+        if l == 'p1':
+            l1 = p3
+            l2 = p2
+            if p2score > p3score:
+                l1 = p2
+                l2 = p3
+        elif l == 'p2':
+            l1 = p3
+            l2 = p1
+            if p1score > p3score:
+                l1 = p1
+                l2 = p3
+        elif l == 'p3':
+            l1 = p2
+            l2 = p1
+            if p1score > p2score:
+                l1 = p1
+                l2 = p2
+
+        gp = GamePong.objects.create(
+            score = f"{tab[0]}-{tab[1]}-{tab[2]}",
+            winner = w,
+            loser = l1,
+            loser1 = l2,
+            date = datetime.now().strftime("%d/%m/%Y %H:%M"),
+        )
+        gp.save()
         return JsonResponse({
             'player1': player1
         })
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=400)
 
-################### STATS JOUEUR ##################
+
+################################################### TTTHISTORY #############################################
 
 # @csrf_exempt
-# def winrate(request):
+# def ttthistory(request):
 #     if request.method == 'POST':
 #         data = json.loads(request.body)
-#         u = data.get('username')
-        
+#         lost = data.get('loser')
+#         won = data.get('winningPlayer')
+#         return JsonResponse({
+#             'lost' : lost
+#         })
+#     else:
+#         return JsonResponse({'error': 'Invalid request method'}, status=400)

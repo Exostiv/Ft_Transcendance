@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import { Link  } from 'react-router-dom';
-//import useUser from "../hooks/useUserStorage";
-//import axios from 'axios';
-//import './TicTacToe.css';
+
 function Square({value, onSquareClick}) {
     return (
         <button className="square" onClick={onSquareClick}>
@@ -11,7 +9,7 @@ function Square({value, onSquareClick}) {
     );
 }
 
-function ShowTicTacToe({user, opponent}){
+function ShowTicTacToe(user, opponent){
 
     //const user = useUser("user");
 	const randomNum = Math.random(); //genere un num entre 0 et 1
@@ -73,7 +71,7 @@ function ShowTicTacToe({user, opponent}){
 
     return(
         <>
-			{(winner || tie) && (
+			{(winner || tie) &&(
                 <div className="popup-container">
                     <div className="popup">
                         <div className="alert alert-success" role="alert">

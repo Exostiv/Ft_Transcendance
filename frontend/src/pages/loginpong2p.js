@@ -37,11 +37,14 @@ const Login2p = () => {
       })
       .then(response => {
         const data = response.data;
+        user.set("pongAccess", 'pongv2');
+        console.log("access dans choix = ", user.get("pongAccess"));
+        
         setUsername('');
         setPassword('');
         setLoginMethod('');
         if(username && areValuesUnique(userArray[0][1], userArray[1][1], data.username)) {
-          localStorage.setItem(toadd, data.username+"@+User");
+          localStorage.setItem(toadd, data.username+"@+Alias");
           userArray[playerN-1][1] = data.username;
           playerN += 1;
           console.log(userArray);
@@ -64,6 +67,8 @@ const Login2p = () => {
       })
       .then(response => {
         const data = response.data;
+        user.set("pongAccess", 'pongtournament');
+        console.log("access dans choix = ", user.get("pongAccess"));
         setUsername('');
         setPassword('');
         setLoginMethod('');
@@ -74,7 +79,6 @@ const Login2p = () => {
           playerN += 1;
           console.log(userArray);
         } else {
-          console.log("Adakor");
           alert("User/Alias doesn't exist or already in use.");
         }
       })

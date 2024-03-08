@@ -32,7 +32,6 @@ const Tournament = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Yo");
     const toadd = 'alias' + playerN;
     var  tocheck = username;
     if(loginMethod == 'Alias')
@@ -42,11 +41,14 @@ const Tournament = () => {
       })
       .then(response => {
         const data = response.data;
+        user.set("pongAccess", 'pongtournament');
+        console.log("access dans choix = ", user.get("pongAccess"));
+
         setUsername('');
         setPassword('');
         setLoginMethod('');
         if(username && areValuesUnique(userArray[0][1], userArray[1][1], userArray[2][1], userArray[3][1], data.username)) {
-          localStorage.setItem(toadd, data.username+"@+User");
+          localStorage.setItem(toadd, data.username+"@+Alias");
           userArray[playerN-1][1] = data.username;
           playerN += 1;
           console.log(userArray);
@@ -69,6 +71,8 @@ const Tournament = () => {
     })
     .then(response => {
       const data = response.data;
+      user.set("pongAccess", 'pongtournament');
+      console.log("access dans choix = ", user.get("pongAccess"));
       setUsername('');
       setPassword('');
       setLoginMethod('');

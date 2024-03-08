@@ -40,11 +40,14 @@ const Login3p = () => {
       })
       .then(response => {
         const data = response.data;
+        user.set("pongAccess", 'pongv3');
+        console.log("access dans choix = ", user.get("pongAccess"));
+
         setUsername('');
         setPassword('');
         setLoginMethod('');
         if(username && areValuesUnique(userArray[0][1], userArray[1][1], userArray[2][1], data.username)) {
-          localStorage.setItem(toadd, data.username+"@+User");
+          localStorage.setItem(toadd, data.username+"@+Alias");
           userArray[playerN-1][1] = data.username;
           playerN += 1;
           console.log(userArray);
@@ -67,6 +70,8 @@ const Login3p = () => {
     })
     .then(response => {
       const data = response.data;
+      user.set("pongAccess", 'pongtournament');
+      console.log("access dans choix = ", user.get("pongAccess"));
       setUsername('');
       setPassword('');
       setLoginMethod('');

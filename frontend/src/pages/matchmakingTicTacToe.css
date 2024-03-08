@@ -9,12 +9,23 @@
   background-color: blanchedalmond;
 }
 
+.pop-up-overlay{
+  display :flex;
+}
+
+.pop-up{
+  display:center;
+  background-color: white;
+  border-radius: 5px;
+  text-align: center;
+}
+
 .toconnect{
-margin-top: 10px;
-display: flex;
-max-width:30vw;
-max-height:10vw;
-border-radius: 5px;
+  margin-top: 10px;
+  display: flex;
+  max-width:30vw;
+  max-height:10vw;
+  border-radius: 5px;
 }
 
 .p{
